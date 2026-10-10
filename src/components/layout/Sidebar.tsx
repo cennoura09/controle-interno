@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { ListChecks, Wallet, Megaphone, type LucideIcon } from "lucide-react";
 import { cn } from "../../lib/cn";
 import { ProgressBar } from "../ui/ProgressBar";
+import logo from "../../assets/so-sales-logo.jpg";
 
 interface NavItem {
   to: string;
@@ -21,11 +22,13 @@ export function Sidebar() {
     <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-bg lg:flex">
       {/* Marca */}
       <div className="flex items-center gap-3 px-5 py-5">
-        <div className="grid h-9 w-9 place-items-center rounded-lg bg-accent font-mono text-lg font-bold text-black">
-          C
-        </div>
+        <img
+          src={logo}
+          alt="So Sales"
+          className="h-9 w-9 rounded-lg border border-border object-cover"
+        />
         <div className="leading-tight">
-          <div className="text-sm font-semibold tracking-tight">Controle Interno</div>
+          <div className="text-sm font-semibold tracking-tight">So Sales</div>
           <div className="mono-label text-accent">OPERAÇÃO</div>
         </div>
       </div>
@@ -33,7 +36,7 @@ export function Sidebar() {
       {/* Empresa */}
       <div className="mx-3 mb-2 rounded-lg border border-border bg-surface px-3 py-2.5">
         <div className="mono-label mb-0.5">EMPRESA</div>
-        <div className="text-sm font-medium">Acme Growth Co.</div>
+        <div className="text-sm font-medium">So Sales</div>
         <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
           <span className="h-1.5 w-1.5 rounded-full bg-success" />
           Ativa · 13 membros

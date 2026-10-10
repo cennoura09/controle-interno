@@ -144,7 +144,7 @@ export function TarefasPage() {
       <NovaTarefaModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onCreate={(task) => setTasks((prev) => [task, ...prev])}
+        onCreate={(newTasks) => setTasks((prev) => [...newTasks, ...prev])}
       />
     </div>
   );
