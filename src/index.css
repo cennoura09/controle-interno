@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-bg text-content font-display antialiased;
+    font-feature-settings: "ss01";
+  }
+
+  /* Scrollbar estilizada (dark) */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2e2e34 transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: #2e2e34;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: #3a3a42;
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* Label monoespaçada no estilo "01 // VOLUME TOTAL" */
+  .mono-label {
+    @apply font-mono text-[11px] uppercase tracking-[0.14em] text-muted;
+  }
+
+  .mono-num {
+    @apply font-mono tabular-nums;
+  }
+
+  .card {
+    @apply rounded-card border border-border bg-surface shadow-card;
+  }
+
+  .focus-ring {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg;
+  }
+}
