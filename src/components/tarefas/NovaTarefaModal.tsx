@@ -10,7 +10,6 @@ import {
   isGlobalRole,
 } from "../../lib/permissions";
 import type { Sector, Task, TaskPriority, User } from "../../lib/types";
-import { USERS } from "../../data/users";
 
 const PRIORITIES: { value: TaskPriority; label: string }[] = [
   { value: "baixa", label: "Baixa" },
@@ -42,12 +41,12 @@ export function NovaTarefaModal({
   /** Gera uma tarefa por pessoa selecionada. */
   onCreate: (tasks: Task[]) => void;
 }) {
-  const { currentUser } = useSession();
+  const { currentUser, users } = useSession();
 
   // PERMISSÃO: lista de destinatários permitidos para o usuário atual.
   const targets = useMemo(
-    () => getAssignableTargets(currentUser, USERS),
-    [currentUser]
+    () => getAssignableTargets(currentUser, users),
+    [currentUser, users]
   );
   const targetIds = useMemo(() => new Set(targets.map((t) => t.id)), [targets]);
   const onlySelf = targets.length === 1;

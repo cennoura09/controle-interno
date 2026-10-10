@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { ListChecks, Wallet, Megaphone, type LucideIcon } from "lucide-react";
+import { ListChecks, Wallet, Megaphone, UsersRound, type LucideIcon } from "lucide-react";
 import { cn } from "../../lib/cn";
 import { ProgressBar } from "../ui/ProgressBar";
+import { GerenciarEquipeModal } from "../equipe/GerenciarEquipeModal";
+import { useSession } from "../../context/SessionContext";
 import logo from "../../assets/so-sales-logo.jpg";
 
 interface NavItem {
@@ -18,6 +21,8 @@ const NAV: NavItem[] = [
 ];
 
 export function Sidebar() {
+  const { users } = useSession();
+  const [teamOpen, setTeamOpen] = useState(false);
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-bg lg:flex">
       {/* Marca */}
@@ -39,9 +44,18 @@ export function Sidebar() {
         <div className="text-sm font-medium">So Sales</div>
         <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
           <span className="h-1.5 w-1.5 rounded-full bg-success" />
-          Ativa · 13 membros
+          Ativa · {users.length} membros
         </div>
+        <button
+          onClick={() => setTeamOpen(true)}
+          className="focus-ring mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-border bg-surface-2 py-1.5 text-xs text-muted transition-colors hover:border-muted-2 hover:text-content"
+        >
+          <UsersRound size={13} />
+          Gerenciar equipe
+        </button>
       </div>
+
+      <GerenciarEquipeModal open={teamOpen} onClose={() => setTeamOpen(false)} />
 
       {/* Navegação */}
       <nav className="mt-3 flex-1 px-3">

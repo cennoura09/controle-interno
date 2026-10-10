@@ -78,6 +78,63 @@ export function canManageSector(currentUser: User, sector: Sector): boolean {
   return false;
 }
 
+/**
+ * Pode registrar lançamentos financeiros manualmente?
+ * Apenas pessoas do setor Financeiro (CFO e analistas) e CEO/Founder.
+ */
+export function canRegisterFinance(user: User): boolean {
+  return isGlobalRole(user.role) || user.sector === "Financeiro";
+}
+
+// ---------------------------------------------------------------------------
+// Criação de contas (provisionamento de membros)
+// ---------------------------------------------------------------------------
+
+/** Setores que um colaborador pode ocupar (não-executivos). */
+export const OPERATIONAL_SECTORS: Sector[] = [
+  "Marketing",
+  "Comercial",
+  "Financeiro",
+  "Operacional",
+];
+
+/** Só diretores e CEO/Founder criam contas. */
+export function canCreateAccounts(user: User): boolean {
+  return isGlobalRole(user.role) || isDirector(user.role);
+}
+
+/** Setor correspondente a um cargo (para contas novas). */
+export function sectorForRole(role: Role): Sector | undefined {
+  if (role === "CEO" || role === "Founder") return "Executivo";
+  return DIRECTOR_SECTOR[role]; // CMO->Marketing...; undefined para Colaborador
+}
+
+/**
+ * Cargos que `user` pode atribuir a uma conta nova.
+ * - CEO/Founder: qualquer cargo.
+ * - Diretor: o próprio cargo (um par) ou Colaborador (funcionário).
+ */
+export function creatableRoles(user: User): Role[] {
+  if (isGlobalRole(user.role)) {
+    return ["Founder", "CEO", "CMO", "CCO", "CFO", "COO", "Colaborador"];
+  }
+  if (isDirector(user.role)) {
+    return [user.role, "Colaborador"];
+  }
+  return [];
+}
+
+/**
+ * Setores em que `user` pode criar contas de Colaborador.
+ * - CEO/Founder: qualquer setor operacional.
+ * - Diretor: apenas o próprio setor.
+ */
+export function creatableSectors(user: User): Sector[] {
+  if (isGlobalRole(user.role)) return OPERATIONAL_SECTORS;
+  const own = directedSector(user);
+  return own ? [own] : [];
+}
+
 function dedupeById(users: User[]): User[] {
   const seen = new Set<string>();
   const out: User[] = [];

@@ -9,13 +9,15 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { Plus, ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { Plus, ArrowDownRight, ArrowUpRight, Lock } from "lucide-react";
 import { Card, SectionHeader, SectionLabel } from "../components/ui/Card";
 import { StatCard } from "../components/ui/StatCard";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Modal } from "../components/ui/Modal";
 import { ConnectBanner } from "../components/ui/ConnectBanner";
+import { useSession } from "../context/SessionContext";
+import { canRegisterFinance } from "../lib/permissions";
 import {
   FINANCE_KPIS as K,
   REVENUE_SERIES,
@@ -25,6 +27,8 @@ import type { Transaction, TransactionType } from "../lib/types";
 import { brl, delta, pct, shortDate } from "../lib/format";
 
 export function FinanceiroPage() {
+  const { currentUser } = useSession();
+  const canRegister = canRegisterFinance(currentUser);
   const [txs, setTxs] = useState<Transaction[]>(TRANSACTIONS);
   const [manualOpen, setManualOpen] = useState(false);
 
@@ -39,9 +43,16 @@ export function FinanceiroPage() {
         title="Financeiro"
         description="Receitas, despesas e faturamento. Conecte seu gateway de pagamento ou lance manualmente."
         right={
-          <Button variant="secondary" icon={<Plus size={16} />} onClick={() => setManualOpen(true)}>
-            Adicionar manualmente
-          </Button>
+          canRegister ? (
+            <Button variant="secondary" icon={<Plus size={16} />} onClick={() => setManualOpen(true)}>
+              Adicionar manualmente
+            </Button>
+          ) : (
+            <span className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs text-muted">
+              <Lock size={13} />
+              Lançamento manual restrito ao Financeiro
+            </span>
+          )
         }
       />
 
