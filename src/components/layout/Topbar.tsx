@@ -1,34 +1,9 @@
 import { Bell, Search } from "lucide-react";
 import { RoleSwitcher } from "./RoleSwitcher";
-import { StatusDot } from "../ui/Badge";
-
-/** Métrica rápida no estilo da referência (label mono + valor). */
-function QuickMetric({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className="hidden flex-col xl:flex">
-      <span className="mono-label">{label}</span>
-      <span className={"font-mono text-sm " + (accent ? "text-accent" : "text-content")}>
-        {value}
-      </span>
-    </div>
-  );
-}
 
 export function Topbar() {
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-border bg-bg/80 px-4 backdrop-blur-md sm:px-6">
-      <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2 text-sm">
-          <StatusDot />
-          <span className="font-mono text-xs uppercase tracking-wider text-muted">
-            Dados em tempo real
-          </span>
-        </div>
-        <QuickMetric label="TAREFAS ABERTAS" value="8" />
-        <QuickMetric label="CONCLUÍDAS (SEM.)" value="9" accent />
-        <QuickMetric label="MEMBROS ATIVOS" value="13" />
-      </div>
-
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-end gap-4 border-b border-border bg-bg/80 px-4 backdrop-blur-md sm:px-6">
       <div className="flex items-center gap-2 sm:gap-3">
         <button
           className="focus-ring hidden items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-xs text-muted hover:border-muted-2 md:flex"
