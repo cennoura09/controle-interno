@@ -11,6 +11,18 @@ memória — e troca para a API real só por variável de ambiente, sem mudar o 
 
 A UI é em **português do Brasil**. Mantenha textos, labels e mensagens em pt-BR.
 
+## Documentação detalhada
+
+Começe por [`docs/README.md`](docs/README.md) (índice). Atalhos:
+
+- Arquitetura e fluxo de dados → [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md)
+- Contrato de tipos → [`docs/MODELO-DE-DADOS.md`](docs/MODELO-DE-DADOS.md)
+- Camada de dados / API → [`docs/CAMADA-DE-DADOS.md`](docs/CAMADA-DE-DADOS.md)
+- Banco de dados → [`docs/BANCO-DE-DADOS.md`](docs/BANCO-DE-DADOS.md)
+- Permissões → [`docs/PERMISSOES.md`](docs/PERMISSOES.md)
+- Componentes e design → [`docs/COMPONENTES.md`](docs/COMPONENTES.md)
+- Convenções → [`docs/CONVENCOES.md`](docs/CONVENCOES.md)
+
 ## Comandos
 
 ```bash

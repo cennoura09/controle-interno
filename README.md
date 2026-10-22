@@ -62,6 +62,7 @@ O modelo de tabelas (PostgreSQL/Supabase) está em [`db/schema.sql`](db/schema.s
 com dados de exemplo em [`db/seed.sql`](db/seed.sql).
 
 > Agentes de código (Codex): ver [`AGENTS.md`](AGENTS.md).
+> Documentação técnica completa: [`docs/`](docs/README.md).
 
 ## Estrutura
 
