@@ -117,6 +117,9 @@ npm run preview      # serve o dist/
 - O build hoje gera um bundle único > 500 kB (recharts + react). É só um aviso;
   se virar problema, considerar code-splitting por rota via `React.lazy`.
 
+Detalhes de toolchain (PostCSS, carregamento de fontes, `index.html`), testes,
+lint, CI e deploy estão em [OPERACAO.md](OPERACAO.md).
+
 ## Exceção conhecida (gotcha para o Codex)
 
 `src/components/tarefas/TaskCard.tsx` ainda importa `getUser` de

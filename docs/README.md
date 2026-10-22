@@ -11,8 +11,11 @@ desenvolvedores. Para o guia operacional curto, veja [`../AGENTS.md`](../AGENTS.
 | [MODELO-DE-DADOS.md](MODELO-DE-DADOS.md) | Referência dos tipos de `src/lib/types.ts` (o contrato) |
 | [CAMADA-DE-DADOS.md](CAMADA-DE-DADOS.md) | `DataSource`, adaptadores mock/rest, endpoints, como estender |
 | [BANCO-DE-DADOS.md](BANCO-DE-DADOS.md) | Schema PostgreSQL/Supabase, tabelas, relacionamentos, RLS, seed |
+| [API-CONTRATO.md](API-CONTRATO.md) | Formato de erros, códigos HTTP e fluxo de autenticação (back-end) |
 | [PERMISSOES.md](PERMISSOES.md) | Regras de acesso centralizadas (`src/lib/permissions.ts`) |
-| [COMPONENTES.md](COMPONENTES.md) | Catálogo de componentes de UI e tokens de design |
+| [COMPONENTES.md](COMPONENTES.md) | Catálogo de componentes de UI, tokens de design e responsividade |
+| [ACESSIBILIDADE.md](ACESSIBILIDADE.md) | Estado de a11y, limitações e feedback/erros em runtime |
+| [OPERACAO.md](OPERACAO.md) | Toolchain, fontes, testes, lint, CI, plataforma Codex e deploy |
 | [CONVENCOES.md](CONVENCOES.md) | TypeScript estrito, estilo, i18n, git, checklist |
 
 ## Resumo em uma frase

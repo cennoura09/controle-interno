@@ -89,3 +89,21 @@ NewTransaction { date?, description, category, type, amount, source? }
 - `NewTask` **não** inclui `status` (nasce `"todo"`), `id` nem `createdAt`.
 - `NewTransaction.source` default `"manual"`; `date` default = hoje.
 - `NewUser.initials` é derivada do nome quando ausente (`deriveInitials`).
+
+## Glossário de domínio
+
+| Termo | Significado |
+|---|---|
+| **So Sales** | A empresa dona do painel (marca exibida na sidebar e no modal de equipe). |
+| **Setor** | Área da empresa: Marketing, Comercial, Financeiro, Operacional ou Executivo. |
+| **Executivo** | Setor que agrupa CEO e Founder (acesso global, cross-setor). |
+| **Cargo (Role)** | Papel do usuário. Define permissões, não é o mesmo que `title`. |
+| **Diretor / C-level** | CMO, CCO, CFO, COO — cada um dirige um setor. |
+| **Colaborador** | Funcionário comum de um setor (sem poderes de atribuição/criação). |
+| **`title`** | Descrição livre do cargo exibida na UI (ex.: "Analista de Tráfego"); **não** afeta permissões. |
+| **Escopo de atribuição** | Conjunto de pessoas a quem um usuário pode atribuir tarefas (ver [PERMISSOES.md](PERMISSOES.md)). |
+| **Responsável / `assigneeId`** | Quem executa a tarefa. |
+| **Criador / `createdById`** | Quem atribuiu a tarefa. |
+| **Gateway** | Origem de transação sincronizada por integração de pagamento (vs. `manual`). |
+| **ROAS / CPL / CAC / MRR** | Métricas de marketing/financeiro (retorno sobre ads, custo por lead, custo de aquisição, receita recorrente mensal). |
+| **Role Switcher** | Seletor que simula "quem sou eu" para testar permissões sem login. |

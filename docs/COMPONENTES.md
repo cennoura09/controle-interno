@@ -85,6 +85,29 @@ Cada uma carrega via `useAsync(() => data.*)` e trata `Loading`/`LoadError`:
 - `MarketingPage` — KPIs, split orgânico × pago, funil de conversão e
   performance por canal.
 
+## Responsividade
+
+Breakpoints padrão do Tailwind: `sm` 640px, `md` 768px, `lg` 1024px, `xl` 1280px.
+
+- **Sidebar** (`components/layout/Sidebar.tsx`): oculta abaixo de `lg`
+  (`hidden lg:flex`). No lugar dela, o `AppShell` mostra uma **barra de
+  navegação inferior fixa** (`lg:hidden`).
+- **Grids** de KPIs/cards reflow por breakpoint (ex.: `grid-cols-1 sm:grid-cols-2
+  xl:grid-cols-4`) — empilham no mobile, expandem no desktop.
+- **Tabelas** ficam em um contêiner `overflow-x-auto` para rolar na horizontal
+  sem quebrar o layout.
+- **Topbar** encurta elementos (ex.: busca só a partir de `md`, nome do usuário
+  a partir de `sm`).
+
+Regra geral: projetar primeiro para ~400px e deixar flex/grid expandirem; nada
+com `min-width` maior que a tela.
+
+## Acessibilidade
+
+Estado e limitações (foco, modal, Kanban só-mouse, movimento) em
+[ACESSIBILIDADE.md](ACESSIBILIDADE.md). Resumo: use `.focus-ring` em tudo que
+recebe foco e garanta alternativa por teclado para ações de mouse.
+
 ## Convenções de UI
 
 - Composição de classes via `cn()` ([`../src/lib/cn.ts`](../src/lib/cn.ts)).

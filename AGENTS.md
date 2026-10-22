@@ -19,8 +19,11 @@ Começe por [`docs/README.md`](docs/README.md) (índice). Atalhos:
 - Contrato de tipos → [`docs/MODELO-DE-DADOS.md`](docs/MODELO-DE-DADOS.md)
 - Camada de dados / API → [`docs/CAMADA-DE-DADOS.md`](docs/CAMADA-DE-DADOS.md)
 - Banco de dados → [`docs/BANCO-DE-DADOS.md`](docs/BANCO-DE-DADOS.md)
+- Contrato da API (erros, auth) → [`docs/API-CONTRATO.md`](docs/API-CONTRATO.md)
 - Permissões → [`docs/PERMISSOES.md`](docs/PERMISSOES.md)
 - Componentes e design → [`docs/COMPONENTES.md`](docs/COMPONENTES.md)
+- Acessibilidade e feedback → [`docs/ACESSIBILIDADE.md`](docs/ACESSIBILIDADE.md)
+- Operação (toolchain, testes, CI, deploy) → [`docs/OPERACAO.md`](docs/OPERACAO.md)
 - Convenções → [`docs/CONVENCOES.md`](docs/CONVENCOES.md)
 
 ## Comandos
