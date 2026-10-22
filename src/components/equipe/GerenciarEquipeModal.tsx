@@ -10,7 +10,7 @@ import {
   creatableSectors,
   sectorForRole,
 } from "../../lib/permissions";
-import type { Role, Sector, User } from "../../lib/types";
+import type { NewUser, Role, Sector, User } from "../../lib/types";
 
 const SECTOR_ORDER: Sector[] = [
   "Executivo",
@@ -36,13 +36,6 @@ function roleTone(role: Role): "accent" | "info" | "neutral" {
   return "info";
 }
 
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
 const fieldCls =
   "w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-content placeholder:text-muted-2 focus-ring";
 const labelCls = "mono-label mb-1.5 block";
@@ -54,7 +47,7 @@ export function GerenciarEquipeModal({
   open: boolean;
   onClose: () => void;
 }) {
-  const { currentUser, users, addUser } = useSession();
+  const { currentUser, users, createUser } = useSession();
   const canCreate = canCreateAccounts(currentUser);
   const [mode, setMode] = useState<"list" | "create">("list");
 
@@ -130,8 +123,8 @@ export function GerenciarEquipeModal({
       ) : (
         <CriarContaForm
           onCancel={() => setMode("list")}
-          onCreate={(user) => {
-            addUser(user);
+          onCreate={async (input) => {
+            await createUser(input);
             setMode("list");
           }}
           creator={currentUser}
@@ -148,7 +141,7 @@ function CriarContaForm({
 }: {
   creator: User;
   onCancel: () => void;
-  onCreate: (user: User) => void;
+  onCreate: (input: NewUser) => Promise<void> | void;
 }) {
   const roleOptions = creatableRoles(creator);
   const selectableSectors = creatableSectors(creator);
@@ -157,22 +150,26 @@ function CriarContaForm({
   const [title, setTitle] = useState("");
   const [role, setRole] = useState<Role>(roleOptions[0] ?? "Colaborador");
   const [sector, setSector] = useState<Sector>(selectableSectors[0] ?? "Marketing");
+  const [submitting, setSubmitting] = useState(false);
 
   // Para cargos de diretoria/executivo o setor é automático.
   const autoSector = sectorForRole(role);
   const finalSector = autoSector ?? sector;
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
-    onCreate({
-      id: `u-new-${Date.now()}`,
-      name: name.trim(),
-      role,
-      sector: finalSector,
-      title: title.trim() || ROLE_TITLE[role],
-      initials: getInitials(name),
-    });
+    if (!name.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      await onCreate({
+        name: name.trim(),
+        role,
+        sector: finalSector,
+        title: title.trim() || ROLE_TITLE[role],
+      });
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -262,8 +259,8 @@ function CriarContaForm({
         >
           <ArrowLeft size={14} /> Voltar à lista
         </button>
-        <Button type="submit" variant="primary" disabled={!name.trim()}>
-          Criar conta
+        <Button type="submit" variant="primary" disabled={!name.trim() || submitting}>
+          {submitting ? "Criando…" : "Criar conta"}
         </Button>
       </div>
     </form>

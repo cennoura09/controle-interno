@@ -100,3 +100,66 @@ export interface TrendPoint {
   day: string;
   value: number;
 }
+
+// ---------------------------------------------------------------------------
+// Agregados (KPIs) — o back-end pode calcular no servidor e devolver prontos.
+// ---------------------------------------------------------------------------
+export interface FinanceKpis {
+  faturamento: number;
+  faturamentoDelta: number;
+  despesas: number;
+  despesasDelta: number;
+  lucroLiquido: number;
+  lucroDelta: number;
+  ticketMedio: number;
+  ticketDelta: number;
+  mrr: number;
+  inadimplencia: number;
+}
+
+export interface MarketingKpis {
+  leads: number;
+  leadsDelta: number;
+  cpl: number;
+  cplDelta: number;
+  investimento: number;
+  investimentoDelta: number;
+  roas: number;
+  roasDelta: number;
+  vendas: number;
+  vendasDelta: number;
+  cac: number;
+  cacDelta: number;
+  conversao: number;
+  conversaoDelta: number;
+}
+
+// ---------------------------------------------------------------------------
+// Payloads de criação — o que o front envia; id/datas/derivados são do servidor.
+// ---------------------------------------------------------------------------
+export interface NewUser {
+  name: string;
+  role: Role;
+  sector: Sector;
+  title?: string;
+  initials?: string;
+}
+
+export interface NewTask {
+  title: string;
+  description?: string;
+  priority: TaskPriority;
+  sector: Sector;
+  assigneeId: string;
+  createdById: string;
+  dueDate?: string;
+}
+
+export interface NewTransaction {
+  date?: string;
+  description: string;
+  category: string;
+  type: TransactionType;
+  amount: number;
+  source?: TransactionSource;
+}

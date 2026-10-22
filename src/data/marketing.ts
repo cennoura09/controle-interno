@@ -1,7 +1,13 @@
-// TODO(backend): substituir por GET /api/marketing/* (Meta Ads, Google Ads, GA4).
-import type { ChannelPerformance, FunnelStage, TrendPoint } from "../lib/types";
+// Seed do MockDataSource. Em produção estes valores vêm de GET /api/marketing/*
+// (ver src/services/rest.ts). Mantido tipado para servir de contrato de exemplo.
+import type {
+  ChannelPerformance,
+  FunnelStage,
+  MarketingKpis,
+  TrendPoint,
+} from "../lib/types";
 
-export const MARKETING_KPIS = {
+export const MARKETING_KPIS: MarketingKpis = {
   leads: 1_428,
   leadsDelta: 0.184,
   cpl: 16.4, // custo por lead (R$)

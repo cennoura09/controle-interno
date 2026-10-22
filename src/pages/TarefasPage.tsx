@@ -3,12 +3,14 @@ import { Plus, Inbox } from "lucide-react";
 import { SectionHeader } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
+import { Loading, LoadError } from "../components/ui/Loading";
 import { TaskCard } from "../components/tarefas/TaskCard";
 import { NovaTarefaModal } from "../components/tarefas/NovaTarefaModal";
 import { useSession } from "../context/SessionContext";
 import { isGlobalRole } from "../lib/permissions";
-import { INITIAL_TASKS } from "../data/tasks";
-import type { Task, TaskStatus } from "../lib/types";
+import { data } from "../services";
+import { useAsync } from "../lib/useAsync";
+import type { TaskStatus } from "../lib/types";
 import { cn } from "../lib/cn";
 
 type Scope = "minhas" | "setor" | "todas";
@@ -21,7 +23,11 @@ const COLUMNS: { status: TaskStatus; label: string; index: string; accent: strin
 
 export function TarefasPage() {
   const { currentUser } = useSession();
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
+  const { data: loaded, loading, error, setData: setTasks, reload } = useAsync(
+    () => data.listTasks(),
+    []
+  );
+  const tasks = useMemo(() => loaded ?? [], [loaded]);
   const [scope, setScope] = useState<Scope>("setor");
   const [modalOpen, setModalOpen] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -45,12 +51,20 @@ export function TarefasPage() {
     });
   }, [tasks, effectiveScope, currentUser]);
 
-  function moveTask(id: string, status: TaskStatus) {
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+  async function moveTask(id: string, status: TaskStatus) {
+    // Otimista: move na UI e persiste; se falhar, recarrega do serviço.
+    setTasks((prev) =>
+      (prev ?? []).map((t) => (t.id === id ? { ...t, status } : t))
+    );
+    try {
+      await data.updateTaskStatus(id, status);
+    } catch {
+      reload();
+    }
   }
 
   function handleDrop(status: TaskStatus) {
-    if (dragId) moveTask(dragId, status);
+    if (dragId) void moveTask(dragId, status);
     setDragId(null);
     setOverCol(null);
   }
@@ -91,6 +105,12 @@ export function TarefasPage() {
         </span>
       </div>
 
+      {error ? (
+        <LoadError error={error} onRetry={reload} />
+      ) : loading && tasks.length === 0 ? (
+        <Loading label="Carregando tarefas…" />
+      ) : (
+      <>
       {/* Kanban */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {COLUMNS.map((col) => {
@@ -140,11 +160,16 @@ export function TarefasPage() {
           description="Crie uma nova tarefa ou troque o filtro de visualização."
         />
       )}
+      </>
+      )}
 
       <NovaTarefaModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onCreate={(newTasks) => setTasks((prev) => [...newTasks, ...prev])}
+        onCreate={async (inputs) => {
+          const created = await data.createTasks(inputs);
+          setTasks((prev) => [...created, ...(prev ?? [])]);
+        }}
       />
     </div>
   );

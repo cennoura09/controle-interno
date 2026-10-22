@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -16,51 +16,89 @@ import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Modal } from "../components/ui/Modal";
 import { ConnectBanner } from "../components/ui/ConnectBanner";
+import { Loading, LoadError } from "../components/ui/Loading";
 import { useSession } from "../context/SessionContext";
 import { canRegisterFinance } from "../lib/permissions";
-import {
-  FINANCE_KPIS as K,
-  REVENUE_SERIES,
-  TRANSACTIONS,
-} from "../data/finance";
-import type { Transaction, TransactionType } from "../lib/types";
+import { data } from "../services";
+import { useAsync } from "../lib/useAsync";
+import type { NewTransaction, TransactionType } from "../lib/types";
 import { brl, delta, pct, shortDate } from "../lib/format";
 
 export function FinanceiroPage() {
   const { currentUser } = useSession();
   const canRegister = canRegisterFinance(currentUser);
-  const [txs, setTxs] = useState<Transaction[]>(TRANSACTIONS);
   const [manualOpen, setManualOpen] = useState(false);
 
-  const sorted = useMemo(
-    () => [...txs].sort((a, b) => (a.date < b.date ? 1 : -1)),
-    [txs]
+  const { data: loaded, loading, error, setData, reload } = useAsync(
+    () =>
+      Promise.all([
+        data.getFinanceKpis(),
+        data.getRevenueSeries(),
+        data.listTransactions(),
+      ]).then(([kpis, series, txs]) => ({ kpis, series, txs })),
+    []
   );
+
+  async function addTransaction(input: NewTransaction) {
+    const tx = await data.createTransaction(input);
+    setData((prev) => (prev ? { ...prev, txs: [tx, ...prev.txs] } : prev));
+  }
+
+  const header = (
+    <SectionHeader
+      title="Financeiro"
+      description="Receitas, despesas e faturamento. Conecte seu gateway de pagamento ou lance manualmente."
+      right={
+        canRegister ? (
+          <Button variant="secondary" icon={<Plus size={16} />} onClick={() => setManualOpen(true)}>
+            Adicionar manualmente
+          </Button>
+        ) : (
+          <span className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs text-muted">
+            <Lock size={13} />
+            Lançamento manual restrito ao Financeiro
+          </span>
+        )
+      }
+    />
+  );
+
+  const banner = (
+    <ConnectBanner
+      title="Conecte seu sistema de pagamento"
+      description="Sincronize receitas e despesas automaticamente em tempo real."
+      integrations={["Stripe", "Pagar.me", "Mercado Pago", "Asaas"]}
+    />
+  );
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        {header}
+        {banner}
+        <LoadError error={error} onRetry={reload} />
+      </div>
+    );
+  }
+
+  if (!loaded || loading) {
+    return (
+      <div className="space-y-6">
+        {header}
+        {banner}
+        <Loading label="Carregando financeiro…" />
+      </div>
+    );
+  }
+
+  const K = loaded.kpis;
+  const REVENUE_SERIES = loaded.series;
+  const sorted = [...loaded.txs].sort((a, b) => (a.date < b.date ? 1 : -1));
 
   return (
     <div className="space-y-6">
-      <SectionHeader
-        title="Financeiro"
-        description="Receitas, despesas e faturamento. Conecte seu gateway de pagamento ou lance manualmente."
-        right={
-          canRegister ? (
-            <Button variant="secondary" icon={<Plus size={16} />} onClick={() => setManualOpen(true)}>
-              Adicionar manualmente
-            </Button>
-          ) : (
-            <span className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs text-muted">
-              <Lock size={13} />
-              Lançamento manual restrito ao Financeiro
-            </span>
-          )
-        }
-      />
-
-      <ConnectBanner
-        title="Conecte seu sistema de pagamento"
-        description="Sincronize receitas e despesas automaticamente em tempo real."
-        integrations={["Stripe", "Pagar.me", "Mercado Pago", "Asaas"]}
-      />
+      {header}
+      {banner}
 
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -165,7 +203,7 @@ export function FinanceiroPage() {
       <ManualTxModal
         open={manualOpen}
         onClose={() => setManualOpen(false)}
-        onAdd={(t) => setTxs((prev) => [t, ...prev])}
+        onAdd={addTransaction}
       />
     </div>
   );
@@ -184,27 +222,31 @@ function MiniRow({ label, value, tone }: { label: string; value: string; tone?: 
 const fieldCls = "w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-content placeholder:text-muted-2 focus-ring";
 const labelCls = "mono-label mb-1.5 block";
 
-function ManualTxModal({ open, onClose, onAdd }: { open: boolean; onClose: () => void; onAdd: (t: Transaction) => void }) {
+function ManualTxModal({ open, onClose, onAdd }: { open: boolean; onClose: () => void; onAdd: (t: NewTransaction) => Promise<void> | void }) {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState<TransactionType>("receita");
+  const [submitting, setSubmitting] = useState(false);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     const value = Number(amount.replace(",", "."));
-    if (!description.trim() || !value) return;
-    onAdd({
-      id: `f-${Date.now()}`,
-      date: new Date().toISOString().slice(0, 10),
-      description: description.trim(),
-      category: category.trim() || "Outros",
-      type,
-      amount: value,
-      source: "manual",
-    });
-    setDescription(""); setCategory(""); setAmount(""); setType("receita");
-    onClose();
+    if (!description.trim() || !value || submitting) return;
+    setSubmitting(true);
+    try {
+      await onAdd({
+        description: description.trim(),
+        category: category.trim() || "Outros",
+        type,
+        amount: value,
+        source: "manual",
+      });
+      setDescription(""); setCategory(""); setAmount(""); setType("receita");
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -233,7 +275,7 @@ function ManualTxModal({ open, onClose, onAdd }: { open: boolean; onClose: () =>
         </div>
         <div className="flex justify-end gap-2 border-t border-border pt-4">
           <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" variant="primary">Adicionar</Button>
+          <Button type="submit" variant="primary" disabled={submitting}>{submitting ? "Adicionando…" : "Adicionar"}</Button>
         </div>
       </form>
     </Modal>

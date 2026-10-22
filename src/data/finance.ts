@@ -1,7 +1,8 @@
-// TODO(backend): substituir por GET /api/finance/* (gateway: Stripe/Pagar.me).
-import type { MonthlyPoint, Transaction } from "../lib/types";
+// Seed do MockDataSource. Em produção estes valores vêm de GET /api/finance/*
+// (ver src/services/rest.ts). Mantido tipado para servir de contrato de exemplo.
+import type { FinanceKpis, MonthlyPoint, Transaction } from "../lib/types";
 
-export const FINANCE_KPIS = {
+export const FINANCE_KPIS: FinanceKpis = {
   faturamento: 184_320, // R$ no mês
   faturamentoDelta: 0.142, // +14,2%
   despesas: 97_540,

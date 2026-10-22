@@ -2,7 +2,7 @@
 
 Painel interno para controle de **tarefas**, **financeiro** e **marketing** de uma empresa, no estilo de um dashboard operacional (dark + acento laranja).
 
-> **Escopo deste repositório:** apenas o **front-end / design** do MVP. Todos os dados são **mockados** e as integrações (gateway de pagamento, Meta/Google Ads) são **placeholders**. O back-end (APIs, autenticação e integrações reais) será desenvolvido pela equipe — os pontos de conexão estão marcados com `// TODO(backend)`.
+> **Escopo deste repositório:** o **front-end** do MVP, já preparado para receber o banco de dados. Todo acesso a dados passa por uma **camada de serviços** (`src/services`) que, por padrão, usa um mock em memória e troca para a API real apenas por variável de ambiente — sem mudar o código do app. As integrações (gateway de pagamento, Meta/Google Ads) seguem como **placeholders** até o back-end existir.
 
 ## Funcionalidades (MVP)
 
@@ -33,32 +33,55 @@ KPIs (leads, CPL, investimento, ROAS, CAC, conversão), split orgânico × pago,
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
+cp .env.example .env   # opcional; o padrão já funciona com dados mock
+npm run dev            # http://localhost:5173
 ```
 
 Build de produção:
 
 ```bash
+npm run typecheck      # checagem de tipos
 npm run build
 npm run preview
 ```
+
+## Camada de dados (pronto para o banco)
+
+O app importa **apenas** `data` de [`src/services`](src/services/index.ts), que
+implementa a interface [`DataSource`](src/services/datasource.ts). Duas
+implementações convivem:
+
+| Env | Fonte |
+|---|---|
+| `VITE_DATA_SOURCE=mock` (padrão) | dados em memória ([`mock.ts`](src/services/mock.ts)) |
+| `VITE_DATA_SOURCE=rest` | API do back-end em `VITE_API_URL` ([`rest.ts`](src/services/rest.ts)) |
+
+Para ligar o banco real, basta subir uma API com os endpoints de
+[`rest.ts`](src/services/rest.ts) e apontar o `.env` — **nada muda no front**.
+O modelo de tabelas (PostgreSQL/Supabase) está em [`db/schema.sql`](db/schema.sql),
+com dados de exemplo em [`db/seed.sql`](db/seed.sql).
+
+> Agentes de código (Codex): ver [`AGENTS.md`](AGENTS.md).
 
 ## Estrutura
 
 ```
 src/
-  lib/          # types, permissions (regras centrais), format, cn
+  lib/          # types, permissions (regras centrais), format, cn, useAsync
+  services/     # DataSource (contrato) + adaptadores mock e rest
   context/      # SessionContext (usuário atual + role switcher)
-  data/         # mocks tipados (users, tasks, finance, marketing) + seams de API
+  data/         # seeds tipados (users, tasks, finance, marketing) do mock
   components/
     layout/     # AppShell, Sidebar, Topbar, RoleSwitcher
-    ui/         # Card, StatCard, Badge, Button, Modal, Sparkline, ...
+    ui/         # Card, StatCard, Badge, Button, Modal, Loading, Sparkline, ...
     tarefas/    # TaskCard, NovaTarefaModal
+    equipe/     # GerenciarEquipeModal
   pages/        # TarefasPage, FinanceiroPage, MarketingPage
+db/             # schema.sql + seed.sql (PostgreSQL/Supabase)
 ```
 
 ## Próximos passos (back-end)
-- Trocar os mocks em `src/data/*` por chamadas de API (ver comentários `TODO(backend)`).
-- Implementar autenticação e derivar o `currentUser` da sessão real.
+- Subir a API com os endpoints de [`src/services/rest.ts`](src/services/rest.ts) sobre o schema de [`db/schema.sql`](db/schema.sql) e apontar `VITE_DATA_SOURCE=rest`.
+- Implementar autenticação e derivar o `currentUser` da sessão real (hoje vem do role switcher).
 - **Revalidar as permissões no servidor** — o front-end apenas reflete o que é permitido.
 - Implementar as integrações de pagamento e de marketing por trás dos `ConnectBanner`.

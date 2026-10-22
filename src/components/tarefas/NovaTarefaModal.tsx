@@ -9,7 +9,7 @@ import {
   getAssignableTargets,
   isGlobalRole,
 } from "../../lib/permissions";
-import type { Sector, Task, TaskPriority, User } from "../../lib/types";
+import type { NewTask, Sector, TaskPriority, User } from "../../lib/types";
 
 const PRIORITIES: { value: TaskPriority; label: string }[] = [
   { value: "baixa", label: "Baixa" },
@@ -38,8 +38,8 @@ export function NovaTarefaModal({
 }: {
   open: boolean;
   onClose: () => void;
-  /** Gera uma tarefa por pessoa selecionada. */
-  onCreate: (tasks: Task[]) => void;
+  /** Gera uma tarefa por pessoa selecionada (persistida pela camada de serviços). */
+  onCreate: (inputs: NewTask[]) => Promise<void> | void;
 }) {
   const { currentUser, users } = useSession();
 
@@ -56,6 +56,7 @@ export function NovaTarefaModal({
   const [selectedIds, setSelectedIds] = useState<string[]>([currentUser.id]);
   const [priority, setPriority] = useState<TaskPriority>("media");
   const [dueDate, setDueDate] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   // Ao trocar de cargo (ou abrir), reinicia a seleção para o próprio usuário.
   useEffect(() => {
@@ -90,27 +91,27 @@ export function NovaTarefaModal({
     setDueDate("");
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim() || selectedUsers.length === 0) return;
-    const now = Date.now();
-    const createdAt = new Date().toISOString().slice(0, 10);
+    if (!title.trim() || selectedUsers.length === 0 || submitting) return;
     // Uma tarefa por pessoa selecionada (cada uma com seu responsável/setor).
-    const tasks: Task[] = selectedUsers.map((u, i) => ({
-      id: `t-${now}-${i}`,
+    const inputs: NewTask[] = selectedUsers.map((u) => ({
       title: title.trim(),
       description: description.trim() || undefined,
-      status: "todo",
       priority,
       sector: u.sector,
       assigneeId: u.id,
       createdById: currentUser.id,
       dueDate: dueDate || undefined,
-      createdAt,
     }));
-    onCreate(tasks);
-    reset();
-    onClose();
+    setSubmitting(true);
+    try {
+      await onCreate(inputs);
+      reset();
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -300,9 +301,13 @@ export function NovaTarefaModal({
             <Button
               type="submit"
               variant="primary"
-              disabled={!title.trim() || selectedUsers.length === 0}
+              disabled={!title.trim() || selectedUsers.length === 0 || submitting}
             >
-              {selectedUsers.length > 1 ? "Criar tarefas" : "Criar tarefa"}
+              {submitting
+                ? "Criando…"
+                : selectedUsers.length > 1
+                ? "Criar tarefas"
+                : "Criar tarefa"}
             </Button>
           </div>
         </div>

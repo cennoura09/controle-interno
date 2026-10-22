@@ -1,48 +1,92 @@
-import { useMemo } from "react";
 import { Card, SectionHeader, SectionLabel } from "../components/ui/Card";
 import { StatCard } from "../components/ui/StatCard";
 import { Badge } from "../components/ui/Badge";
 import { Sparkline } from "../components/ui/Sparkline";
 import { ProgressBar } from "../components/ui/ProgressBar";
 import { ConnectBanner } from "../components/ui/ConnectBanner";
-import {
-  MARKETING_KPIS as K,
-  CHANNELS,
-  FUNNEL,
-  LEADS_TREND,
-} from "../data/marketing";
+import { Loading, LoadError } from "../components/ui/Loading";
+import { data } from "../services";
+import { useAsync } from "../lib/useAsync";
+import type { ChannelPerformance } from "../lib/types";
 import { brl, delta, num, pct } from "../lib/format";
 
 export function MarketingPage() {
-  const totals = useMemo(() => {
-    const pago = CHANNELS.filter((c) => c.kind === "pago");
-    const organico = CHANNELS.filter((c) => c.kind === "organico");
-    const sum = (arr: typeof CHANNELS, k: "leads" | "revenue") => arr.reduce((a, c) => a + c[k], 0);
-    const leadsTotal = sum(CHANNELS, "leads");
-    return {
-      pagoLeads: sum(pago, "leads"),
-      orgLeads: sum(organico, "leads"),
-      pagoRev: sum(pago, "revenue"),
-      orgRev: sum(organico, "revenue"),
-      leadsTotal,
-      pagoShare: sum(pago, "leads") / leadsTotal,
-    };
-  }, []);
+  const { data: loaded, loading, error, reload } = useAsync(
+    () =>
+      Promise.all([
+        data.getMarketingKpis(),
+        data.listChannels(),
+        data.getFunnel(),
+        data.getLeadsTrend(),
+      ]).then(([kpis, channels, funnel, trend]) => ({
+        kpis,
+        channels,
+        funnel,
+        trend,
+      })),
+    []
+  );
 
-  const maxFunnel = FUNNEL[0].value;
+  const header = (
+    <SectionHeader
+      title="Marketing"
+      description="Controle das métricas orgânicas e pagas: leads, canais, ROAS e conversão em vendas."
+    />
+  );
+
+  const banner = (
+    <ConnectBanner
+      title="Conecte suas fontes de marketing"
+      description="Puxe métricas de campanhas, leads e conversões automaticamente."
+      integrations={["Meta Ads", "Google Ads", "Google Analytics 4", "RD Station"]}
+    />
+  );
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        {header}
+        {banner}
+        <LoadError error={error} onRetry={reload} />
+      </div>
+    );
+  }
+
+  if (!loaded || loading) {
+    return (
+      <div className="space-y-6">
+        {header}
+        {banner}
+        <Loading label="Carregando marketing…" />
+      </div>
+    );
+  }
+
+  const K = loaded.kpis;
+  const CHANNELS = loaded.channels;
+  const FUNNEL = loaded.funnel;
+  const LEADS_TREND = loaded.trend;
+
+  const sum = (arr: ChannelPerformance[], k: "leads" | "revenue") =>
+    arr.reduce((a, c) => a + c[k], 0);
+  const pago = CHANNELS.filter((c) => c.kind === "pago");
+  const organico = CHANNELS.filter((c) => c.kind === "organico");
+  const leadsTotal = sum(CHANNELS, "leads");
+  const totals = {
+    pagoLeads: sum(pago, "leads"),
+    orgLeads: sum(organico, "leads"),
+    pagoRev: sum(pago, "revenue"),
+    orgRev: sum(organico, "revenue"),
+    leadsTotal,
+    pagoShare: leadsTotal > 0 ? sum(pago, "leads") / leadsTotal : 0,
+  };
+
+  const maxFunnel = FUNNEL[0]?.value ?? 1;
 
   return (
     <div className="space-y-6">
-      <SectionHeader
-        title="Marketing"
-        description="Controle das métricas orgânicas e pagas: leads, canais, ROAS e conversão em vendas."
-      />
-
-      <ConnectBanner
-        title="Conecte suas fontes de marketing"
-        description="Puxe métricas de campanhas, leads e conversões automaticamente."
-        integrations={["Meta Ads", "Google Ads", "Google Analytics 4", "RD Station"]}
-      />
+      {header}
+      {banner}
 
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
