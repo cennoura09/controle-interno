@@ -62,9 +62,27 @@ export class MockDataSource implements DataSource {
       sector: input.sector,
       title: input.title?.trim() || input.role,
       initials: input.initials || deriveInitials(input.name),
+      email: input.email || null,
+      active: true,
     };
     this.users = [...this.users, user];
     return respond(user);
+  }
+
+  setUserActive(id: string, active: boolean): Promise<User> {
+    return this.patchUser(id, { active });
+  }
+
+  setUserLogin(id: string, email: string): Promise<User> {
+    const current = this.users.find((u) => u.id === id);
+    return this.patchUser(id, { email: current?.email || email });
+  }
+
+  private patchUser(id: string, patch: Partial<User>): Promise<User> {
+    this.users = this.users.map((u) => (u.id === id ? { ...u, ...patch } : u));
+    const updated = this.users.find((u) => u.id === id);
+    if (!updated) return Promise.reject(new Error(`Membro ${id} não encontrado`));
+    return respond(updated);
   }
 
   // ---- Tarefas ----
@@ -96,6 +114,11 @@ export class MockDataSource implements DataSource {
     const updated = this.tasks.find((t) => t.id === id);
     if (!updated) return Promise.reject(new Error(`Tarefa ${id} não encontrada`));
     return respond(updated);
+  }
+
+  deleteTask(id: string): Promise<void> {
+    this.tasks = this.tasks.filter((t) => t.id !== id);
+    return respond(undefined);
   }
 
   // ---- Financeiro ----

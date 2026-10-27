@@ -33,6 +33,12 @@ export interface User {
   title: string;
   /** Iniciais para o avatar. */
   initials: string;
+  /** E-mail de login (quando a pessoa tem acesso ao sistema). */
+  email?: string | null;
+  /** Admin supremo: acesso total, gerencia logins e pode "visualizar como". */
+  isSuperAdmin?: boolean;
+  /** Contas desativadas não entram no sistema nem recebem tarefas. */
+  active?: boolean;
 }
 
 export type TaskStatus = "todo" | "doing" | "done";
@@ -143,6 +149,9 @@ export interface NewUser {
   sector: Sector;
   title?: string;
   initials?: string;
+  /** Opcional: cria também o login (e-mail + senha, mín. 8 caracteres). */
+  email?: string;
+  password?: string;
 }
 
 export interface NewTask {

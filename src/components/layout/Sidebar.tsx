@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { ListChecks, Wallet, Megaphone, UsersRound, type LucideIcon } from "lucide-react";
 import { cn } from "../../lib/cn";
 import { ProgressBar } from "../ui/ProgressBar";
 import { GerenciarEquipeModal } from "../equipe/GerenciarEquipeModal";
 import { useSession } from "../../context/SessionContext";
+import { data } from "../../services";
+import { useAsync } from "../../lib/useAsync";
 import logo from "../../assets/so-sales-logo.jpg";
 
 interface NavItem {
@@ -21,8 +23,17 @@ const NAV: NavItem[] = [
 ];
 
 export function Sidebar() {
-  const { users } = useSession();
+  const { users, currentUser } = useSession();
   const [teamOpen, setTeamOpen] = useState(false);
+  const { pathname } = useLocation();
+  // Recarrega ao navegar, para refletir tarefas movidas/criadas.
+  const { data: tasks } = useAsync(() => data.listTasks(), [pathname]);
+  const mine = (tasks ?? []).filter(
+    (t) => t.assigneeId === currentUser.id || t.sector === currentUser.sector
+  );
+  const done = mine.filter((t) => t.status === "done").length;
+  const pct = mine.length ? Math.round((done / mine.length) * 100) : 0;
+  const monthLabel = new Date().toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-bg lg:flex">
       {/* Marca */}
@@ -98,18 +109,18 @@ export function Sidebar() {
       {/* Widget inferior */}
       <div className="m-3 rounded-lg border border-border bg-surface p-3">
         <div className="flex items-center justify-between">
-          <span className="mono-label">TAREFAS DA SEMANA</span>
-          <span className="font-mono text-xs text-accent">69%</span>
+          <span className="mono-label">TAREFAS · {currentUser.sector.toUpperCase()}</span>
+          <span className="font-mono text-xs text-accent">{pct}%</span>
         </div>
-        <ProgressBar value={69} className="mt-2" />
+        <ProgressBar value={pct} className="mt-2" />
         <div className="mt-2 flex items-center justify-between text-[11px] text-muted">
-          <span className="font-mono">9 / 13 concluídas</span>
-          <span>Out 2026</span>
+          <span className="font-mono">{done} / {mine.length} concluídas</span>
+          <span className="capitalize">{monthLabel}</span>
         </div>
       </div>
       <div className="px-5 pb-4 font-mono text-[10px] text-muted-2">
         <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-success align-middle" />
-        v0.1.0 — mvp
+        v1.0.0 — produção
       </div>
     </aside>
   );

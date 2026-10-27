@@ -10,7 +10,7 @@ import { useSession } from "../context/SessionContext";
 import { isGlobalRole } from "../lib/permissions";
 import { data } from "../services";
 import { useAsync } from "../lib/useAsync";
-import type { TaskStatus } from "../lib/types";
+import type { Task, TaskStatus } from "../lib/types";
 import { cn } from "../lib/cn";
 
 type Scope = "minhas" | "setor" | "todas";
@@ -32,6 +32,7 @@ export function TarefasPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<TaskStatus | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const canSeeAll = isGlobalRole(currentUser.role);
 
@@ -57,8 +58,22 @@ export function TarefasPage() {
       (prev ?? []).map((t) => (t.id === id ? { ...t, status } : t))
     );
     try {
+      setActionError(null);
       await data.updateTaskStatus(id, status);
-    } catch {
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+      reload();
+    }
+  }
+
+  async function deleteTask(task: Task) {
+    if (!window.confirm(`Excluir a tarefa "${task.title}"?`)) return;
+    setTasks((prev) => (prev ?? []).filter((t) => t.id !== task.id));
+    try {
+      setActionError(null);
+      await data.deleteTask(task.id);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
       reload();
     }
   }
@@ -105,6 +120,12 @@ export function TarefasPage() {
         </span>
       </div>
 
+      {actionError && (
+        <div role="alert" className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-xs text-danger">
+          {actionError}
+        </div>
+      )}
+
       {error ? (
         <LoadError error={error} onRetry={reload} />
       ) : loading && tasks.length === 0 ? (
@@ -144,7 +165,12 @@ export function TarefasPage() {
                   <EmptyState title="Sem tarefas aqui" />
                 ) : (
                   colTasks.map((t) => (
-                    <TaskCard key={t.id} task={t} onDragStart={setDragId} />
+                    <TaskCard
+                      key={t.id}
+                      task={t}
+                      onDragStart={setDragId}
+                      onDelete={deleteTask}
+                    />
                   ))
                 )}
               </div>

@@ -7,6 +7,8 @@
 // Hoje existem duas implementações:
 //   - MockDataSource  (src/services/mock.ts)  → dados em memória, padrão em dev.
 //   - RestDataSource  (src/services/rest.ts)  → chama a API do back-end.
+//   - SupabaseDataSource (src/services/supabase.ts) → Supabase Auth + Edge
+//     Function `controle-interno` (produção).
 //
 // Para plugar o banco de dados real, o back-end só precisa expor os endpoints
 // que o RestDataSource consome (ver src/services/rest.ts e db/schema.sql).
@@ -33,11 +35,16 @@ export interface DataSource {
   // ---- Equipe / usuários ----
   listUsers(): Promise<User[]>;
   createUser(input: NewUser): Promise<User>;
+  /** Admin supremo: ativa/desativa uma conta. */
+  setUserActive(id: string, active: boolean): Promise<User>;
+  /** Admin supremo: define a senha (e cria o login, se ainda não existir). */
+  setUserLogin(id: string, email: string, password: string): Promise<User>;
 
   // ---- Tarefas ----
   listTasks(): Promise<Task[]>;
   createTasks(inputs: NewTask[]): Promise<Task[]>;
   updateTaskStatus(id: string, status: TaskStatus): Promise<Task>;
+  deleteTask(id: string): Promise<void>;
 
   // ---- Financeiro ----
   getFinanceKpis(): Promise<FinanceKpis>;

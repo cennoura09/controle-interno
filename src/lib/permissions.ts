@@ -11,7 +11,7 @@
 // — o front-end apenas reflete o que é permitido.
 // ============================================================================
 
-import type { Role, Sector, User } from "./types";
+import type { Role, Sector, Task, User } from "./types";
 
 const DIRECTOR_ROLES: Role[] = ["CMO", "CCO", "CFO", "COO"];
 const GLOBAL_ROLES: Role[] = ["CEO", "Founder"];
@@ -23,6 +23,11 @@ const DIRECTOR_SECTOR: Partial<Record<Role, Sector>> = {
   CFO: "Financeiro",
   COO: "Operacional",
 };
+
+/** Admin supremo: acesso irrestrito (inclui gerenciar logins e "visualizar como"). */
+export function isSuperAdmin(user: User): boolean {
+  return user.isSuperAdmin === true;
+}
 
 export function isGlobalRole(role: Role): boolean {
   return GLOBAL_ROLES.includes(role);
@@ -76,6 +81,25 @@ export function canManageSector(currentUser: User, sector: Sector): boolean {
   if (isGlobalRole(currentUser.role)) return true;
   if (isDirector(currentUser.role)) return directedSector(currentUser) === sector;
   return false;
+}
+
+/** Pode mover a tarefa entre colunas? (responsável, criador, diretor do setor, global) */
+export function canMoveTask(user: User, task: Task): boolean {
+  return (
+    isGlobalRole(user.role) ||
+    task.assigneeId === user.id ||
+    task.createdById === user.id ||
+    directedSector(user) === task.sector
+  );
+}
+
+/** Pode excluir a tarefa? (criador, diretor do setor, global) */
+export function canDeleteTask(user: User, task: Task): boolean {
+  return (
+    isGlobalRole(user.role) ||
+    task.createdById === user.id ||
+    directedSector(user) === task.sector
+  );
 }
 
 /**

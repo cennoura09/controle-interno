@@ -60,6 +60,20 @@ export class RestDataSource implements DataSource {
     return this.post<User>("/api/users", input);
   }
 
+  setUserActive(id: string, active: boolean): Promise<User> {
+    return this.request<User>(`/api/users/${id}/active`, {
+      method: "PATCH",
+      body: JSON.stringify({ active }),
+    });
+  }
+
+  setUserLogin(id: string, email: string, password: string): Promise<User> {
+    return this.request<User>(`/api/users/${id}/login`, {
+      method: "PUT",
+      body: JSON.stringify({ email, password }),
+    });
+  }
+
   // ---- Tarefas ----
   listTasks(): Promise<Task[]> {
     return this.request<Task[]>("/api/tasks");
@@ -75,6 +89,10 @@ export class RestDataSource implements DataSource {
       method: "PATCH",
       body: JSON.stringify({ status }),
     });
+  }
+
+  deleteTask(id: string): Promise<void> {
+    return this.request<void>(`/api/tasks/${id}`, { method: "DELETE" });
   }
 
   // ---- Financeiro ----

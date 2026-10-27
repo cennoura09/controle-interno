@@ -1,30 +1,51 @@
-import { Clock } from "lucide-react";
+import { Clock, Trash2 } from "lucide-react";
 import type { Task } from "../../lib/types";
-import { getUser } from "../../data/users";
+import { useSession } from "../../context/SessionContext";
+import { canDeleteTask, canMoveTask } from "../../lib/permissions";
 import { Avatar, Badge, PriorityBadge } from "../ui/Badge";
 import { shortDate } from "../../lib/format";
+import { cn } from "../../lib/cn";
 
 export function TaskCard({
   task,
   onDragStart,
+  onDelete,
 }: {
   task: Task;
   onDragStart: (id: string) => void;
+  onDelete: (task: Task) => void;
 }) {
-  const assignee = getUser(task.assigneeId);
-  const creator = getUser(task.createdById);
+  const { currentUser, allUsers } = useSession();
+  const assignee = allUsers.find((u) => u.id === task.assigneeId);
+  const creator = allUsers.find((u) => u.id === task.createdById);
   const assignedByOther =
     creator && assignee && creator.id !== assignee.id;
+  const movable = canMoveTask(currentUser, task);
 
   return (
     <article
-      draggable
+      draggable={movable}
       onDragStart={() => onDragStart(task.id)}
-      className="card cursor-grab p-3.5 transition-colors hover:border-muted-2 active:cursor-grabbing"
+      className={cn(
+        "card group p-3.5 transition-colors hover:border-muted-2",
+        movable ? "cursor-grab active:cursor-grabbing" : "cursor-default"
+      )}
+      title={movable ? undefined : "Você não pode mover esta tarefa"}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <Badge tone="neutral">{task.sector}</Badge>
-        <PriorityBadge priority={task.priority} />
+        <div className="flex items-center gap-1.5">
+          <PriorityBadge priority={task.priority} />
+          {canDeleteTask(currentUser, task) && (
+            <button
+              onClick={() => onDelete(task)}
+              className="focus-ring rounded p-1 text-muted-2 opacity-60 transition hover:bg-danger-soft hover:text-danger group-hover:opacity-100"
+              aria-label={`Excluir tarefa ${task.title}`}
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
+        </div>
       </div>
 
       <h4 className="text-sm font-medium leading-snug">{task.title}</h4>
