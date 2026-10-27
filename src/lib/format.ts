@@ -13,6 +13,11 @@ export function num(value: number): string {
   return new Intl.NumberFormat("pt-BR").format(value);
 }
 
+/** Divisão segura: 0 quando o denominador é 0 (ex.: mês sem faturamento). */
+export function ratio(part: number, total: number): number {
+  return total ? part / total : 0;
+}
+
 export function pct(value: number, digits = 1): string {
   return `${(value * 100).toFixed(digits).replace(".", ",")}%`;
 }

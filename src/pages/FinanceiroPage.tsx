@@ -22,7 +22,9 @@ import { canRegisterFinance } from "../lib/permissions";
 import { data } from "../services";
 import { useAsync } from "../lib/useAsync";
 import type { NewTransaction, TransactionType } from "../lib/types";
-import { brl, delta, pct, shortDate } from "../lib/format";
+
+const MONTH_LABEL = new Date().toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
+import { brl, delta, pct, ratio, shortDate } from "../lib/format";
 
 export function FinanceiroPage() {
   const { currentUser } = useSession();
@@ -102,9 +104,9 @@ export function FinanceiroPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard index="01" label="FATURAMENTO (MÊS)" value={brl(K.faturamento, { compact: true })} sub="Receita bruta em Out/26" delta={delta(K.faturamentoDelta)} />
+        <StatCard index="01" label="FATURAMENTO (MÊS)" value={brl(K.faturamento, { compact: true })} sub={`Receita bruta em ${MONTH_LABEL}`} delta={delta(K.faturamentoDelta)} />
         <StatCard index="02" label="DESPESAS" value={brl(K.despesas, { compact: true })} sub="Custos + operação" delta={delta(K.despesasDelta)} deltaInvert />
-        <StatCard index="03" label="LUCRO LÍQUIDO" value={brl(K.lucroLiquido, { compact: true })} sub={`Margem de ${pct(K.lucroLiquido / K.faturamento)}`} delta={delta(K.lucroDelta)} />
+        <StatCard index="03" label="LUCRO LÍQUIDO" value={brl(K.lucroLiquido, { compact: true })} sub={`Margem de ${pct(ratio(K.lucroLiquido, K.faturamento))}`} delta={delta(K.lucroDelta)} />
         <StatCard index="04" label="TICKET MÉDIO" value={brl(K.ticketMedio, { compact: true })} sub="Por cliente" delta={delta(K.ticketDelta)} deltaInvert />
       </div>
 
@@ -151,10 +153,10 @@ export function FinanceiroPage() {
         <Card className="flex flex-col gap-4">
           <SectionLabel index="06">INDICADORES</SectionLabel>
           <MiniRow label="MRR" value={brl(K.mrr, { compact: true })} tone="accent" />
-          <MiniRow label="Receita recorrente / total" value={pct(K.mrr / K.faturamento)} />
+          <MiniRow label="Receita recorrente / total" value={pct(ratio(K.mrr, K.faturamento))} />
           <MiniRow label="Inadimplência" value={pct(K.inadimplencia)} tone="danger" />
           <div className="mt-auto rounded-lg border border-border bg-surface-2 p-3 text-xs text-muted">
-            Última sincronização via gateway há <span className="text-content">4 min</span>.
+            Nenhum gateway conectado — os valores vêm dos lançamentos manuais.
           </div>
         </Card>
       </div>

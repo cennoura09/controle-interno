@@ -79,9 +79,10 @@ export function MarketingPage() {
     orgRev: sum(organico, "revenue"),
     leadsTotal,
     pagoShare: leadsTotal > 0 ? sum(pago, "leads") / leadsTotal : 0,
+    orgShare: leadsTotal > 0 ? sum(organico, "leads") / leadsTotal : 0,
   };
 
-  const maxFunnel = FUNNEL[0]?.value ?? 1;
+  const maxFunnel = FUNNEL[0]?.value || 1;
 
   return (
     <div className="space-y-6">
@@ -113,9 +114,9 @@ export function MarketingPage() {
           <div>
             <div className="mb-1.5 flex items-center justify-between text-sm">
               <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-info" />Orgânico</span>
-              <span className="mono-num text-muted">{num(totals.orgLeads)} leads · {pct(1 - totals.pagoShare)}</span>
+              <span className="mono-num text-muted">{num(totals.orgLeads)} leads · {pct(totals.orgShare)}</span>
             </div>
-            <ProgressBar value={(1 - totals.pagoShare) * 100} color="bg-info" />
+            <ProgressBar value={totals.orgShare * 100} color="bg-info" />
           </div>
           <div className="mt-2 grid grid-cols-2 gap-3 border-t border-border-soft pt-4">
             <div>
@@ -135,7 +136,7 @@ export function MarketingPage() {
           <div className="mt-4 space-y-3">
             {FUNNEL.map((stage, i) => {
               const width = (stage.value / maxFunnel) * 100;
-              const conv = i === 0 ? 1 : stage.value / FUNNEL[i - 1].value;
+              const conv = i === 0 ? 1 : FUNNEL[i - 1].value ? stage.value / FUNNEL[i - 1].value : 0;
               return (
                 <div key={stage.stage}>
                   <div className="mb-1 flex items-center justify-between text-sm">
