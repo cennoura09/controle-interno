@@ -81,8 +81,14 @@ src/
 db/             # schema.sql + seed.sql (PostgreSQL/Supabase)
 ```
 
-## Próximos passos (back-end)
-- Subir a API com os endpoints de [`src/services/rest.ts`](src/services/rest.ts) sobre o schema de [`db/schema.sql`](db/schema.sql) e apontar `VITE_DATA_SOURCE=rest`.
-- Implementar autenticação e derivar o `currentUser` da sessão real (hoje vem do role switcher).
-- **Revalidar as permissões no servidor** — o front-end apenas reflete o que é permitido.
-- Implementar as integrações de pagamento e de marketing por trás dos `ConnectBanner`.
+## Produção
+
+Em produção o app usa **Supabase** (login real + banco) e roda na **Vercel**:
+`VITE_DATA_SOURCE=supabase`. Detalhes de arquitetura, segurança e do
+**admin supremo** em [`docs/OPERACAO.md`](docs/OPERACAO.md#produção-vercel--supabase).
+
+- Banco: [`db/supabase/`](db/supabase) (schema `controle_interno`, regras de permissão no servidor e seed).
+- API: Edge Function [`supabase/functions/controle-interno`](supabase/functions/controle-interno/index.ts).
+
+## Próximos passos
+- Implementar as integrações de pagamento e de marketing por trás dos `ConnectBanner` (hoje os dados de marketing vêm do seed).

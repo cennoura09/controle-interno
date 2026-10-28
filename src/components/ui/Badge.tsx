@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "../../lib/cn";
 import type { TaskPriority } from "../../lib/types";
+import { PRIORITY_META } from "../../lib/labels";
 
 /** Pill de variação verde/vermelha (ex.: "▲ +18.4%"). */
 export function DeltaPill({
@@ -58,21 +59,11 @@ export function Badge({
   );
 }
 
-const PRIORITY_CONFIG: Record<
-  TaskPriority,
-  { label: string; dot: string; text: string }
-> = {
-  baixa: { label: "Baixa", dot: "bg-muted-2", text: "text-muted" },
-  media: { label: "Média", dot: "bg-info", text: "text-info" },
-  alta: { label: "Alta", dot: "bg-accent", text: "text-accent" },
-  urgente: { label: "Urgente", dot: "bg-danger", text: "text-danger" },
-};
-
 export function PriorityBadge({ priority }: { priority: TaskPriority }) {
-  const c = PRIORITY_CONFIG[priority];
+  const c = PRIORITY_META[priority];
   return (
-    <span className={cn("inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider", c.text)}>
-      <span className={cn("h-1.5 w-1.5 rounded-full", c.dot)} />
+    <span className={cn("inline-flex items-center gap-1.5 font-mono text-[11px] font-medium uppercase tracking-[0.08em]", c.text)}>
+      <span className={cn("h-2 w-2 rounded-full", c.dot)} />
       {c.label}
     </span>
   );
@@ -91,21 +82,32 @@ export function Avatar({
   initials,
   size = 28,
   className,
+  online,
+  title,
 }: {
   initials: string;
   size?: number;
   className?: string;
+  /** Mostra o indicador verde de presença. */
+  online?: boolean;
+  title?: string;
 }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full border border-border bg-surface-3 font-mono font-medium text-content",
+        "relative inline-flex shrink-0 items-center justify-center rounded-full border border-white/10 bg-gradient-to-b from-[#2A2A30] to-[#18181B] font-medium text-content",
         className
       )}
-      style={{ width: size, height: size, fontSize: size * 0.36 }}
-      title={initials}
+      style={{ width: size, height: size, fontSize: Math.max(10, size * 0.36) }}
+      title={title ?? initials}
     >
       {initials}
+      {online && (
+        <span
+          className="absolute -bottom-0 -right-0 rounded-full border-2 border-bg bg-success"
+          style={{ width: Math.max(8, size * 0.28), height: Math.max(8, size * 0.28) }}
+        />
+      )}
     </span>
   );
 }

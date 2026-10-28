@@ -9,7 +9,8 @@ import {
   getAssignableTargets,
   isGlobalRole,
 } from "../../lib/permissions";
-import type { NewTask, Sector, TaskPriority, User } from "../../lib/types";
+import type { NewTask, Sector, TaskPriority, TaskStatus, User } from "../../lib/types";
+import { STATUS_LABEL } from "../../lib/labels";
 
 const PRIORITIES: { value: TaskPriority; label: string }[] = [
   { value: "baixa", label: "Baixa" },
@@ -35,9 +36,15 @@ export function NovaTarefaModal({
   open,
   onClose,
   onCreate,
+  initialStatus = "todo",
+  initialDueDate,
 }: {
   open: boolean;
   onClose: () => void;
+  /** Coluna em que a tarefa nasce. */
+  initialStatus?: TaskStatus;
+  /** Prazo pré-preenchido (ex.: dia clicado no calendário). */
+  initialDueDate?: string;
   /** Gera uma tarefa por pessoa selecionada (persistida pela camada de serviços). */
   onCreate: (inputs: NewTask[]) => Promise<void> | void;
 }) {
@@ -56,7 +63,18 @@ export function NovaTarefaModal({
   const [selectedIds, setSelectedIds] = useState<string[]>([currentUser.id]);
   const [priority, setPriority] = useState<TaskPriority>("media");
   const [dueDate, setDueDate] = useState("");
+  const [status, setStatus] = useState<TaskStatus>(initialStatus);
+  const [tags, setTags] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Ao abrir, aplica coluna/prazo vindos de quem abriu o modal.
+  useEffect(() => {
+    if (!open) return;
+    setStatus(initialStatus);
+    setDueDate(initialDueDate ?? "");
+    setError(null);
+  }, [open, initialStatus, initialDueDate]);
 
   // Ao trocar de cargo (ou abrir), reinicia a seleção para o próprio usuário.
   useEffect(() => {
@@ -89,6 +107,7 @@ export function NovaTarefaModal({
     setSelectedIds([currentUser.id]);
     setPriority("media");
     setDueDate("");
+    setTags("");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -103,12 +122,17 @@ export function NovaTarefaModal({
       assigneeId: u.id,
       createdById: currentUser.id,
       dueDate: dueDate || undefined,
+      status,
+      tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
     }));
     setSubmitting(true);
+    setError(null);
     try {
       await onCreate(inputs);
       reset();
       onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmitting(false);
     }
@@ -252,7 +276,20 @@ export function NovaTarefaModal({
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div>
+            <label className={labelCls} htmlFor="t-status">Coluna</label>
+            <select
+              id="t-status"
+              className={fieldCls}
+              value={status}
+              onChange={(e) => setStatus(e.target.value as TaskStatus)}
+            >
+              {(Object.keys(STATUS_LABEL) as TaskStatus[]).map((s) => (
+                <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className={labelCls} htmlFor="t-priority">Prioridade</label>
             <select
@@ -279,6 +316,17 @@ export function NovaTarefaModal({
         </div>
 
         <div>
+          <label className={labelCls} htmlFor="t-tags">Tags (separadas por vírgula)</label>
+          <input
+            id="t-tags"
+            className={fieldCls}
+            placeholder="Conteúdo, Instagram, Social Media"
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+          />
+        </div>
+
+        <div>
           <label className={labelCls}>Setor(es) (automático)</label>
           <div className="flex min-h-[38px] flex-wrap items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-muted">
             {sectors.length > 0 ? (
@@ -288,6 +336,12 @@ export function NovaTarefaModal({
             )}
           </div>
         </div>
+
+        {error && (
+          <div role="alert" className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-xs text-danger">
+            {error}
+          </div>
+        )}
 
         <div className="flex items-center justify-between border-t border-border pt-4">
           <span className="text-[11px] text-muted-2">

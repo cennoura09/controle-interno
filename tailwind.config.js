@@ -5,8 +5,8 @@ export default {
     extend: {
       colors: {
         // Design tokens derivados da referência "Control AI"
-        bg: "#0A0A0B",
-        surface: "#141416",
+        bg: "#09090B",
+        surface: "#121214",
         "surface-2": "#1B1B1F",
         "surface-3": "#232328",
         border: "#27272B",
@@ -25,15 +25,17 @@ export default {
         warning: "#FBBF24",
       },
       fontFamily: {
-        display: ['"Space Grotesk"', "system-ui", "sans-serif"],
+        display: ["Inter", "system-ui", "sans-serif"],
         mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
       },
       borderRadius: {
-        card: "12px",
+        card: "14px",
       },
       boxShadow: {
         card: "0 1px 0 0 rgba(255,255,255,0.02) inset, 0 8px 24px -12px rgba(0,0,0,0.6)",
         glow: "0 0 0 1px rgba(255,92,0,0.4), 0 8px 24px -8px rgba(255,92,0,0.25)",
+        "glow-strong": "0 0 0 1px rgba(255,92,0,0.55), 0 0 40px -6px rgba(255,92,0,0.45)",
+        button: "0 8px 28px -8px rgba(255,92,0,0.75), inset 0 1px 0 rgba(255,255,255,0.18)",
       },
     },
   },

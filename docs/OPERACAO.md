@@ -146,3 +146,75 @@ Passos genéricos (Vercel, Netlify, GitHub Pages, S3+CDN, etc.):
 
 > O conector da Vercel no claude.ai existe, mas precisa ser **autorizado** nas
 > configurações de conectores para ser usado a partir daqui.
+
+## Produção (Vercel + Supabase)
+
+Em produção o app roda com `VITE_DATA_SOURCE=supabase`:
+
+```
+Navegador ──login──▶ Supabase Auth
+    │
+    └─ { fn, args } + token ──▶ Edge Function `controle-interno`
+                                  (supabase/functions/controle-interno)
+                                     │ valida o token, abre transação como
+                                     │ `authenticated` com auth.uid() = usuário
+                                     ▼
+                              public.ci_*  (SECURITY DEFINER)
+                              revalidam as permissões e leem/escrevem
+                              no schema `controle_interno`
+```
+
+- **Banco:** schema `controle_interno` (tabelas com RLS ligado e sem acesso
+  direto pelos papéis `anon`/`authenticated`). Scripts em
+  [`db/supabase/001_schema.sql`](../db/supabase/001_schema.sql) (schema, regras
+  e API) e [`db/supabase/002_seed.sql`](../db/supabase/002_seed.sql) (dados).
+- **Edge Function:** publicada com `verify_jwt = false` porque valida o token
+  ela mesma (chama `/auth/v1/user`). Usa `SUPABASE_DB_URL`, já disponível no
+  ambiente das Edge Functions. Não depende da Data API (PostgREST) do projeto.
+- **Vercel:** projeto `controle-interno-sosales`, framework Vite. Variáveis
+  `VITE_DATA_SOURCE=supabase`, `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`
+  (chave pública) em Production e Preview.
+
+### Admin supremo
+
+Membro com `is_super_admin = true` (cargo Founder). Além do acesso global de
+CEO/Founder, ele:
+
+- cria/redefine logins (e-mail + senha) de qualquer membro;
+- ativa/desativa contas (contas inativas não entram nem recebem tarefas);
+- usa **"Visualizar como"** (menu do usuário) para conferir a visão de cada cargo.
+
+A senha nunca vai para o git. Para criar outro admin supremo, rode no SQL do
+Supabase (troque e-mail, nome e senha):
+
+```sql
+insert into controle_interno.app_users
+  (name, role, sector, title, initials, email, auth_user_id, is_super_admin)
+values ('Nome', 'Founder', 'Executivo', 'Admin Supremo', 'NM', 'email@empresa.com',
+        controle_interno.create_auth_user('email@empresa.com', '<senha>'), true);
+```
+
+### Link mágico
+
+O botão "Entrar por link mágico" usa `signInWithOtp` (sem criar contas novas).
+Para o link voltar ao app, adicione a URL da Vercel em **Supabase → Authentication
+→ URL Configuration → Redirect URLs**.
+
+### Operação completa (migração 003)
+
+[`db/supabase/003_operacao_completa.sql`](../db/supabase/003_operacao_completa.sql) adiciona:
+
+- **Tarefas:** tags, `updated_at`/`completed_at`, edição parcial (`ci_update_task`),
+  checklist, comentários, anexos (até 8 MB, guardados no banco) e histórico
+  automático de cada mudança (`task_activity`).
+- **Notificações** (`notifications`): atribuição, comentário e mudança de status
+  avisam responsável e criador; o sino do topo lista e marca como lidas.
+- **Presença:** `last_seen_at` atualizado no login e a cada minuto (“membros online”).
+- **Financeiro:** excluir lançamento e editar a inadimplência (`settings`).
+- **Marketing:** lançar/editar/excluir canais do mês, montar o funil e registrar
+  leads do dia — permitido ao setor de Marketing e a CEO/Founder.
+- **Perfil e equipe:** editar o próprio perfil; CEO/Founder editam membros.
+
+Interface: Visão geral, Tarefas (Quadro / Lista / Calendário + painel de
+detalhes em `?tarefa=<id>`), Financeiro, Marketing, Relatórios (com CSV) e
+Configurações; busca global com Ctrl/⌘ + K.

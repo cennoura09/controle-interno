@@ -33,6 +33,14 @@ export interface User {
   title: string;
   /** Iniciais para o avatar. */
   initials: string;
+  /** E-mail de login (quando a pessoa tem acesso ao sistema). */
+  email?: string | null;
+  /** Admin supremo: acesso total, gerencia logins e pode "visualizar como". */
+  isSuperAdmin?: boolean;
+  /** Contas desativadas não entram no sistema nem recebem tarefas. */
+  active?: boolean;
+  /** Última atividade (ISO) — usado para "membros online". */
+  lastSeenAt?: string | null;
 }
 
 export type TaskStatus = "todo" | "doing" | "done";
@@ -51,6 +59,96 @@ export interface Task {
   createdById: string;
   /** Data limite no formato ISO (YYYY-MM-DD). */
   dueDate?: string;
+  createdAt: string;
+  updatedAt?: string;
+  completedAt?: string;
+  tags?: string[];
+  checklistTotal?: number;
+  checklistDone?: number;
+  commentCount?: number;
+  fileCount?: number;
+}
+
+/** Campos editáveis de uma tarefa (envio parcial). */
+export interface TaskPatch {
+  title?: string;
+  description?: string;
+  priority?: TaskPriority;
+  sector?: Sector;
+  assigneeId?: string;
+  dueDate?: string | null;
+  tags?: string[];
+  status?: TaskStatus;
+}
+
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+  dueDate?: string;
+  assigneeId?: string;
+}
+
+export interface ChecklistPatch {
+  text?: string;
+  done?: boolean;
+  dueDate?: string | null;
+  assigneeId?: string | null;
+}
+
+export interface TaskComment {
+  id: string;
+  authorId: string;
+  body: string;
+  createdAt: string;
+}
+
+export interface TaskFile {
+  id: string;
+  /** Nome do arquivo ou título do link. */
+  name: string;
+  /** Presente quando o anexo é um link (sem arquivo). */
+  url?: string;
+  mime: string;
+  size: number;
+  uploaderId: string;
+  createdAt: string;
+}
+
+/** Conteúdo de um anexo para download/upload. */
+export interface FilePayload {
+  name: string;
+  mime: string;
+  base64: string;
+}
+
+export interface TaskActivity {
+  id: number;
+  actorId?: string | null;
+  action: string;
+  createdAt: string;
+}
+
+/** Atividade com o título da tarefa (feed da Visão geral). */
+export interface ActivityEntry extends TaskActivity {
+  taskId: string;
+  taskTitle: string;
+}
+
+export interface TaskDetail {
+  task: Task;
+  checklist: ChecklistItem[];
+  comments: TaskComment[];
+  files: TaskFile[];
+  activity: TaskActivity[];
+}
+
+export interface AppNotification {
+  id: number;
+  actorId?: string;
+  taskId?: string;
+  body: string;
+  read: boolean;
   createdAt: string;
 }
 
@@ -89,6 +187,17 @@ export interface ChannelPerformance {
   leads: number;
   sales: number;
   revenue: number; // R$ gerado
+}
+
+/** Lançamento manual de um canal no mês corrente (id vazio = novo). */
+export interface ChannelInput {
+  id?: string;
+  channel: string;
+  kind: ChannelKind;
+  invested: number;
+  leads: number;
+  sales: number;
+  revenue: number;
 }
 
 export interface FunnelStage {
@@ -143,6 +252,9 @@ export interface NewUser {
   sector: Sector;
   title?: string;
   initials?: string;
+  /** Opcional: cria também o login (e-mail + senha, mín. 8 caracteres). */
+  email?: string;
+  password?: string;
 }
 
 export interface NewTask {
@@ -153,6 +265,8 @@ export interface NewTask {
   assigneeId: string;
   createdById: string;
   dueDate?: string;
+  status?: TaskStatus;
+  tags?: string[];
 }
 
 export interface NewTransaction {
@@ -163,3 +277,6 @@ export interface NewTransaction {
   amount: number;
   source?: TransactionSource;
 }
+
+/** Indicadores configuráveis (ex.: inadimplência). */
+export type AppSettings = Record<string, number>;

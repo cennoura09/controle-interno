@@ -13,9 +13,22 @@
     height: 100%;
   }
 
+  /*
+   * Escala da interface no desktop: com o navegador em 100% o painel fica na
+   * proporção da referência (tudo a 72%). O celular usa o tamanho original.
+   */
+  :root {
+    --ui-scale: 0.72;
+  }
+  @media (min-width: 1024px) {
+    #root {
+      zoom: var(--ui-scale);
+    }
+  }
+
   body {
     @apply bg-bg text-content font-display antialiased;
-    font-feature-settings: "ss01";
+    font-feature-settings: "cv11", "ss01";
   }
 
   /* Scrollbar estilizada (dark) */
@@ -37,6 +50,34 @@
     background: #3a3a42;
     background-clip: content-box;
   }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.6);
+    cursor: pointer;
+  }
+
+  /* Celular: toque sem flash azul e sem rolagem "elástica" do fundo. */
+  html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    overscroll-behavior-y: none;
+  }
+
+  @media (max-width: 639px) {
+    /* iOS dá zoom em campos com fonte < 16px ao focar. */
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+    /* Barras de rolagem finas não fazem sentido no toque. */
+    *::-webkit-scrollbar {
+      width: 0;
+      height: 0;
+    }
+  }
 }
 
 @layer components {
@@ -45,15 +86,48 @@
     @apply font-mono text-[11px] uppercase tracking-[0.14em] text-muted;
   }
 
+  /* Números: Inter com algarismos tabulares (zero limpo, colunas alinhadas). */
   .mono-num {
-    @apply font-mono tabular-nums;
+    @apply font-display tabular-nums tracking-[-0.01em];
   }
 
   .card {
-    @apply rounded-card border border-border bg-surface shadow-card;
+    @apply rounded-2xl border border-white/[0.08] bg-[#111113] shadow-card;
+  }
+
+  /* Painel translúcido usado nas colunas, toolbars e cards da operação. */
+  .panel {
+    @apply rounded-2xl border border-white/[0.07] bg-[#111113]/80 backdrop-blur-sm;
+  }
+
+  .field {
+    @apply w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-content placeholder:text-muted-2 focus-ring;
   }
 
   .focus-ring {
     @apply outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#FF6A14] to-[#F25500] px-5 py-2.5 text-[15px] font-semibold text-white shadow-button transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  /* Brilho laranja sutil atrás do logo/sidebar. */
+  .ambient-glow {
+    background:
+      radial-gradient(420px 260px at 0% 0%, rgba(255, 92, 0, 0.16), transparent 70%),
+      radial-gradient(300px 380px at 0% 100%, rgba(255, 92, 0, 0.06), transparent 70%);
+  }
+}
+
+@layer utilities {
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
