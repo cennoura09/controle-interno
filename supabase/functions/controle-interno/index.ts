@@ -60,6 +60,7 @@ const CALLS: Record<string, Param[]> = {
     ["taskId", "p_task", "text"], ["name", "p_name", "text"],
     ["mime", "p_mime", "text"], ["base64", "p_base64", "text"],
   ],
+  ci_add_link: [["taskId", "p_task", "text"], ["url", "p_url", "text"], ["title", "p_title", "text"]],
   ci_get_file: [ID],
   ci_delete_file: [ID],
   ci_recent_activity: [["limit", "p_limit", "integer"]],

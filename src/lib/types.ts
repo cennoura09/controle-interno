@@ -105,7 +105,10 @@ export interface TaskComment {
 
 export interface TaskFile {
   id: string;
+  /** Nome do arquivo ou título do link. */
   name: string;
+  /** Presente quando o anexo é um link (sem arquivo). */
+  url?: string;
   mime: string;
   size: number;
   uploaderId: string;

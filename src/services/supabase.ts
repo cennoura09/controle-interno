@@ -166,6 +166,10 @@ export class SupabaseDataSource implements DataSource {
     return this.call<TaskFile>("ci_upload_file", { taskId, ...file });
   }
 
+  addLink(taskId: string, url: string, title?: string): Promise<TaskFile> {
+    return this.call<TaskFile>("ci_add_link", { taskId, url, title });
+  }
+
   getFile(id: string): Promise<FilePayload> {
     return this.call<FilePayload>("ci_get_file", { id });
   }

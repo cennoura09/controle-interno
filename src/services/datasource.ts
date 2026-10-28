@@ -71,6 +71,8 @@ export interface DataSource {
   addComment(taskId: string, body: string): Promise<TaskComment>;
   deleteComment(id: string): Promise<void>;
   uploadFile(taskId: string, file: FilePayload): Promise<TaskFile>;
+  /** Anexa um link (ex.: pasta do Drive, Figma) à tarefa. */
+  addLink(taskId: string, url: string, title?: string): Promise<TaskFile>;
   getFile(id: string): Promise<FilePayload>;
   deleteFile(id: string): Promise<void>;
   recentActivity(limit?: number): Promise<ActivityEntry[]>;

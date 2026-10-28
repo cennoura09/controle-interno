@@ -288,6 +288,25 @@ export class MockDataSource implements DataSource {
     return respond(meta);
   }
 
+  addLink(taskId: string, url: string, title?: string): Promise<TaskFile> {
+    const href = /^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`;
+    const stored = {
+      id: uid("f"),
+      taskId,
+      name: title?.trim() || href.replace(/^https?:\/\/(www\.)?/i, ""),
+      mime: "text/uri-list",
+      size: 0,
+      url: href,
+      uploaderId: DEMO_ACTOR,
+      createdAt: now(),
+      base64: "",
+    };
+    this.files.push(stored);
+    this.log(taskId, `anexou o link ${stored.name}`);
+    const { base64: _base64, taskId: _taskId, ...meta } = stored;
+    return respond(meta);
+  }
+
   getFile(id: string): Promise<FilePayload> {
     const f = this.files.find((x) => x.id === id);
     if (!f) return Promise.reject(new Error("Arquivo não encontrado"));

@@ -147,6 +147,10 @@ export class RestDataSource implements DataSource {
     return this.send<TaskFile>("POST", `/api/tasks/${taskId}/files`, file);
   }
 
+  addLink(taskId: string, url: string, title?: string): Promise<TaskFile> {
+    return this.send<TaskFile>("POST", `/api/tasks/${taskId}/links`, { url, title });
+  }
+
   getFile(id: string): Promise<FilePayload> {
     return this.request<FilePayload>(`/api/files/${id}`);
   }

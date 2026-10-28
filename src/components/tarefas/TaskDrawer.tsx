@@ -23,6 +23,8 @@ import {
   Download,
   Loader2,
   History,
+  Link2,
+  ExternalLink,
 } from "lucide-react";
 import { Drawer } from "../ui/Drawer";
 import { LogoMark } from "../ui/Logo";
@@ -889,7 +891,7 @@ async function downloadFile(id: string) {
 
 function FileThumb({ file }: { file: TaskFile }) {
   const [src, setSrc] = useState<string | null>(null);
-  const isImage = file.mime.startsWith("image/") && file.size < 3 * 1024 * 1024;
+  const isImage = !file.url && file.mime.startsWith("image/") && file.size < 3 * 1024 * 1024;
   useEffect(() => {
     if (!isImage) return;
     let alive = true;
@@ -899,6 +901,13 @@ function FileThumb({ file }: { file: TaskFile }) {
     };
   }, [file.id, isImage]);
   if (src) return <img src={src} alt="" className="h-11 w-11 shrink-0 rounded-md object-cover" />;
+  if (file.url) {
+    return (
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-accent/15">
+        <Link2 size={20} className="text-accent" />
+      </span>
+    );
+  }
   const pdf = file.mime === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
   return (
     <span className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-md", pdf ? "bg-[#E5322D]" : "bg-white/[0.07]")}>
@@ -929,6 +938,32 @@ function FilesCard({
   const input = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(0);
   const [dragOver, setDragOver] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkTitle, setLinkTitle] = useState("");
+  const [savingLink, setSavingLink] = useState(false);
+
+  async function addLink() {
+    const url = linkUrl.trim();
+    if (!url || savingLink) return;
+    setSavingLink(true);
+    onError(null);
+    try {
+      const saved = await data.addLink(taskId, url, linkTitle.trim() || undefined);
+      onChange((prev) => {
+        const next = [...prev, saved];
+        syncCount(next.length);
+        return next;
+      });
+      setLinkUrl("");
+      setLinkTitle("");
+      setLinkOpen(false);
+    } catch (e) {
+      onError(errMsg(e));
+    } finally {
+      setSavingLink(false);
+    }
+  }
 
   const syncCount = (count: number) => {
     const t = tasks.find((x) => x.id === taskId);
@@ -960,7 +995,7 @@ function FilesCard({
   }
 
   async function remove(f: TaskFile) {
-    if (!window.confirm(`Remover o anexo "${f.name}"?`)) return;
+    if (!window.confirm(`Remover ${f.url ? "o link" : "o anexo"} "${f.name}"?`)) return;
     onChange((prev) => {
       const next = prev.filter((x) => x.id !== f.id);
       syncCount(next.length);
@@ -975,15 +1010,55 @@ function FilesCard({
     <Box
       title={<><Paperclip size={17} className="text-[#C9C9CF]" /> Anexos ({files.length})</>}
       right={
-        <button onClick={() => input.current?.click()} className="flex items-center gap-1 text-[13px] font-medium text-accent hover:brightness-125">
-          {uploading > 0 ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Enviar
-        </button>
+        <span className="flex items-center gap-3">
+          <button onClick={() => setLinkOpen((v) => !v)} className="flex items-center gap-1 text-[13px] font-medium text-accent hover:brightness-125">
+            <Link2 size={14} /> Link
+          </button>
+          <button onClick={() => input.current?.click()} className="flex items-center gap-1 text-[13px] font-medium text-accent hover:brightness-125">
+            {uploading > 0 ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Enviar
+          </button>
+        </span>
       }
     >
       <input ref={input} type="file" multiple hidden onChange={(e) => {
         void upload(e.target.files);
         e.target.value = "";
       }} />
+      {linkOpen && (
+        <div className="mb-3 space-y-2 rounded-lg border border-accent/40 bg-white/[0.02] p-2.5">
+          <input
+            autoFocus
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void addLink();
+              if (e.key === "Escape") setLinkOpen(false);
+            }}
+            placeholder="Cole o link (Drive, Figma, Notion, site...)"
+            inputMode="url"
+            aria-label="Endereço do link"
+            className="field h-9 py-1.5 text-[13px]"
+          />
+          <input
+            value={linkTitle}
+            onChange={(e) => setLinkTitle(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && void addLink()}
+            placeholder="Título (opcional)"
+            aria-label="Título do link"
+            className="field h-9 py-1.5 text-[13px]"
+          />
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setLinkOpen(false)} className="px-2 py-1 text-xs text-muted hover:text-white">Cancelar</button>
+            <button
+              onClick={() => void addLink()}
+              disabled={!linkUrl.trim() || savingLink}
+              className="rounded-md bg-accent px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+            >
+              {savingLink ? "Salvando…" : "Adicionar link"}
+            </button>
+          </div>
+        </div>
+      )}
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -1002,20 +1077,30 @@ function FilesCard({
             onClick={() => input.current?.click()}
             className="flex w-full flex-col items-center gap-1 rounded-lg border border-dashed border-white/10 py-5 text-[13px] text-muted hover:border-white/25"
           >
-            <Upload size={18} /> Arraste arquivos ou clique para enviar (até 8 MB)
+            <Upload size={18} /> Arraste arquivos ou clique para enviar (até 8 MB) — ou use "Link"
           </button>
         ) : (
           <div className={cn("grid gap-2", compact ? "grid-cols-2" : "grid-cols-1 sm:grid-cols-2")}>
             {shown.map((f) => (
               <div key={f.id} className="group relative flex items-center gap-2.5 rounded-lg border border-white/[0.08] bg-white/[0.03] p-2">
-                <button onClick={() => void downloadFile(f.id).catch((e) => onError(errMsg(e)))} className="flex min-w-0 flex-1 items-center gap-2.5 text-left" title={`Baixar ${f.name}`}>
+                <button
+                  onClick={() =>
+                    f.url
+                      ? window.open(f.url, "_blank", "noopener,noreferrer")
+                      : void downloadFile(f.id).catch((e) => onError(errMsg(e)))
+                  }
+                  className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                  title={f.url ? `Abrir ${f.url}` : `Baixar ${f.name}`}
+                >
                   <FileThumb file={f} />
                   <span className="min-w-0">
                     <span className="block truncate text-[12.5px] font-medium text-white">{f.name}</span>
-                    <span className="block text-[11.5px] text-[#9A9AA2]">{fileSize(f.size)}</span>
+                    <span className="block truncate text-[11.5px] text-[#9A9AA2]">
+                      {f.url ? f.url.replace(/^https?:\/\/(www\.)?/i, "") : fileSize(f.size)}
+                    </span>
                   </span>
                 </button>
-                {!compact && <Download size={14} className="shrink-0 text-muted" />}
+                {!compact && (f.url ? <ExternalLink size={14} className="shrink-0 text-muted" /> : <Download size={14} className="shrink-0 text-muted" />)}
                 {(canEdit || f.uploaderId === currentUser.id) && (
                   <button
                     onClick={() => void remove(f)}
