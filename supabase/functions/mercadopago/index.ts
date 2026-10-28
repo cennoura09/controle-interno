@@ -63,7 +63,12 @@ interface MpPayment {
   point_of_interaction?: { type?: string };
   fee_details?: { amount: number }[];
   collector_id?: number;
+  payer?: { id?: number | string };
 }
+
+/** Operações que só movem dinheiro dentro da própria conta (não são venda). */
+// money_transfer fica de fora: de terceiros é receita; para si mesmo cai na checagem do pagador.
+const INTERNAL_OPERATIONS = new Set(["partition_transfer", "account_fund"]);
 
 let accountId: number | null = null;
 /** Id da conta do token (recebedora). */
@@ -80,9 +85,19 @@ async function myAccountId(): Promise<number> {
   return accountId;
 }
 
-/** Só pagamentos RECEBIDOS pela conta viram receita (nunca compras feitas por ela). */
+/**
+ * Só pagamentos RECEBIDOS de terceiros viram receita. Compras feitas pela
+ * conta e movimentações internas (saque, reserva, transferência para si
+ * mesmo) são ignoradas — e, se já tinham sido gravadas, removidas.
+ */
 async function applyIfReceived(p: MpPayment) {
-  if (p.collector_id !== undefined && p.collector_id !== (await myAccountId())) return "ignored" as const;
+  const me = await myAccountId();
+  const notMine = p.collector_id !== undefined && p.collector_id !== me;
+  const internal = INTERNAL_OPERATIONS.has(p.operation_type ?? "") || String(p.payer?.id ?? "") === String(me);
+  if (notMine || internal) {
+    const removed = await sql`delete from controle_interno.transactions where external_id in (${`mp:${p.id}`}, ${`mp:${p.id}:taxa`}) returning id`;
+    return removed.length ? ("removed" as const) : ("ignored" as const);
+  }
   return applyPayment(p);
 }
 
@@ -318,10 +333,35 @@ Deno.serve(async (req) => {
   }
 
   try {
-    if (body.op === "status" || body.op === "sync" || body.op === "diagnose") {
+    if (body.op === "status" || body.op === "sync" || body.op === "diagnose" || body.op === "inspect") {
       const member = await memberFromToken(req.headers.get("Authorization"));
       if (!member) return json({ error: "Sessão expirada. Faça login novamente." }, 401);
       if (body.op === "status") return json({ data: await status() });
+      if (body.op === "inspect") {
+        // Detalhe dos pagamentos dos últimos 90 dias, sem gravar nada.
+        if (!(member.is_super_admin || ["CEO", "Founder"].includes(member.role) || member.sector === "Financeiro")) {
+          return json({ error: "Sem permissão." }, 403);
+        }
+        const me = await myAccountId();
+        const qs = new URLSearchParams({
+          sort: "date_created", criteria: "desc", range: "date_created",
+          begin_date: new Date(Date.now() - 90 * 86_400_000).toISOString(), end_date: new Date().toISOString(), limit: "50",
+        });
+        type Raw = MpPayment & {
+          payment_type_id?: string; payment_method_id?: string; payer?: { id?: number | string };
+          transaction_details?: { net_received_amount?: number }; money_release_date?: string;
+        };
+        const page = await mp<{ results: Raw[] }>(`/v1/payments/search?${qs}`);
+        return json({
+          data: (page.results ?? []).map((p) => ({
+            id: p.id, created: p.date_created, approved: p.date_approved, status: p.status,
+            amount: p.transaction_amount, net: p.transaction_details?.net_received_amount,
+            operation: p.operation_type, type: p.payment_type_id, method: p.payment_method_id,
+            description: p.description ?? null,
+            received: p.collector_id === me, paidByMe: String(p.payer?.id ?? "") === String(me),
+          })),
+        });
+      }
       if (body.op === "diagnose") {
         // Só códigos HTTP e mensagens do MP, nenhum dado de pagamento.
         const probe = async (path: string) => {
