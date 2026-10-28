@@ -140,19 +140,20 @@ export function EquipePanel({ listClassName }: { listClassName?: string }) {
                   key={u.id}
                   className="rounded-lg border border-border-soft bg-surface-2/50 px-3 py-2"
                 >
-                  <div className={`flex items-center gap-3 ${u.active === false ? "opacity-50" : ""}`}>
+                  <div className={`flex flex-wrap items-center gap-x-3 gap-y-2 ${u.active === false ? "opacity-50" : ""}`}>
                     <Avatar initials={u.initials} size={30} online={isOnline(u.lastSeenAt)} />
-                    <div className="min-w-0 flex-1 leading-tight">
+                    <div className="min-w-0 flex-1 basis-[calc(100%-46px)] leading-tight sm:basis-auto">
                       <div className="truncate text-sm font-medium">{u.name}</div>
                       <div className="truncate text-[11px] text-muted">
                         {u.title}
                         {hasAuth && (u.email ? ` · ${u.email}` : " · sem login")}
                       </div>
                     </div>
+                    <span className="hidden w-[30px] sm:hidden max-sm:block" aria-hidden />
                     {u.isSuperAdmin && <Badge tone="accent">Admin</Badge>}
                     {u.active === false && <Badge tone="neutral">Inativo</Badge>}
                     <Badge tone={roleTone(u.role)}>{u.role}</Badge>
-                    <div className="flex items-center gap-1">
+                    <div className="ml-auto flex items-center gap-1">
                       {canEditMembers && (!u.isSuperAdmin || superAdmin) && (
                         <button
                           onClick={() => setEditFor(editFor === u.id ? null : u.id)}

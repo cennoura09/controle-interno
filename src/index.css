@@ -55,6 +55,29 @@
     filter: invert(0.6);
     cursor: pointer;
   }
+
+  /* Celular: toque sem flash azul e sem rolagem "elástica" do fundo. */
+  html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    overscroll-behavior-y: none;
+  }
+
+  @media (max-width: 639px) {
+    /* iOS dá zoom em campos com fonte < 16px ao focar. */
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+    /* Barras de rolagem finas não fazem sentido no toque. */
+    *::-webkit-scrollbar {
+      width: 0;
+      height: 0;
+    }
+  }
 }
 
 @layer components {
@@ -63,8 +86,9 @@
     @apply font-mono text-[11px] uppercase tracking-[0.14em] text-muted;
   }
 
+  /* Números: Inter com algarismos tabulares (zero limpo, colunas alinhadas). */
   .mono-num {
-    @apply font-mono tabular-nums;
+    @apply font-display tabular-nums tracking-[-0.01em];
   }
 
   .card {

@@ -58,10 +58,11 @@ export function MarketingPage() {
     <PageHeader
       title="Marketing"
       description="Controle das métricas orgânicas e pagas: leads, canais, ROAS e conversão em vendas."
+      shortDescription="Leads, canais, ROAS e conversão."
       action={
         canEdit ? (
           <button onClick={newChannel} className="btn-primary h-11 px-4 text-[15px] sm:h-[50px] sm:px-6 sm:text-[16px]">
-            <Plus size={20} strokeWidth={2.25} /> Lançar canal
+            <Plus size={20} strokeWidth={2.25} /> <span className="sm:hidden">Canal</span><span className="hidden sm:inline">Lançar canal</span>
           </button>
         ) : (
           <span className="flex items-center gap-1.5 rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-xs text-muted">
@@ -128,20 +129,20 @@ export function MarketingPage() {
       {actionError && <div role="alert" className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{actionError}</div>}
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <StatCard index="01" label="LEADS (MÊS)" value={num(K.leads)} sub="Capturados em todos os canais" delta={delta(K.leadsDelta)}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
+        <StatCard index="01" label="Leads (mês)" value={num(K.leads)} sub="Capturados em todos os canais" delta={delta(K.leadsDelta)}
           footer={<Sparkline data={LEADS_TREND.map((p) => p.value)} />} />
-        <StatCard index="02" label="CUSTO POR LEAD" value={brl(K.cpl)} sub="Média ponderada (pago)" delta={delta(K.cplDelta)} deltaInvert />
-        <StatCard index="03" label="INVESTIMENTO EM ADS" value={brl(K.investimento, { compact: true })} sub="Total em mídia paga" delta={delta(K.investimentoDelta)} deltaInvert />
+        <StatCard index="02" label="Custo por lead" value={brl(K.cpl)} sub="Média ponderada (pago)" delta={delta(K.cplDelta)} deltaInvert />
+        <StatCard index="03" label="Investimento" value={brl(K.investimento, { compact: true })} sub="Total em mídia paga" delta={delta(K.investimentoDelta)} deltaInvert />
         <StatCard index="04" label="ROAS" value={`${K.roas.toFixed(1).replace(".", ",")}x`} sub="Retorno sobre investimento" delta={delta(K.roasDelta)} />
         <StatCard index="05" label="CAC" value={brl(K.cac)} sub="Custo de aquisição" delta={delta(K.cacDelta)} deltaInvert />
-        <StatCard index="06" label="CONVERSÃO LEAD→VENDA" value={pct(K.conversao)} sub={`${K.vendas} vendas no mês`} delta={delta(K.conversaoDelta)} />
+        <StatCard index="06" label="Conversão" value={pct(K.conversao)} sub={`${K.vendas} vendas no mês`} delta={delta(K.conversaoDelta)} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Orgânico x Pago */}
         <Card className="flex flex-col gap-4">
-          <SectionLabel index="07">ORGÂNICO × PAGO</SectionLabel>
+          <SectionLabel index="07">Orgânico × pago</SectionLabel>
           <div>
             <div className="mb-1.5 flex items-center justify-between text-sm">
               <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-accent" />Pago</span>
@@ -176,7 +177,7 @@ export function MarketingPage() {
         {/* Funil */}
         <Card className="lg:col-span-2">
           <div className="flex items-center justify-between">
-            <SectionLabel index="08">FUNIL DE CONVERSÃO</SectionLabel>
+            <SectionLabel index="08">Funil de conversão</SectionLabel>
             {canEdit && (
               <button onClick={() => setFunnelOpen(true)} className="flex items-center gap-1 text-xs text-muted hover:text-white">
                 <Pencil size={13} /> Editar funil
@@ -215,10 +216,10 @@ export function MarketingPage() {
 
       {/* Tabela de canais */}
       <Card className="p-0">
-        <div className="flex items-center justify-between p-5 pb-3">
-          <SectionLabel index="09">PERFORMANCE POR CANAL</SectionLabel>
-          <span className="flex items-center gap-3">
-            <span className="font-mono text-xs text-muted">{CHANNELS.length} canais</span>
+        <div className="flex items-center justify-between gap-3 p-4 pb-3 sm:p-5 sm:pb-3">
+          <SectionLabel index="09">Performance por canal</SectionLabel>
+          <span className="flex shrink-0 items-center gap-3">
+            <span className="hidden text-xs text-muted sm:inline">{CHANNELS.length} canais</span>
             <button
               onClick={() =>
                 downloadCsv("marketing-canais", [
@@ -232,7 +233,44 @@ export function MarketingPage() {
             </button>
           </span>
         </div>
-        <div className="overflow-x-auto">
+        {/* Celular: lista */}
+        <ul className="border-t border-border sm:hidden">
+          {CHANNELS.map((c) => {
+            const roas = c.invested > 0 ? c.revenue / c.invested : null;
+            return (
+              <li key={c.id} className="border-b border-border-soft px-4 py-3.5 last:border-0">
+                <div className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate text-[14.5px] font-semibold text-white">{c.channel}</span>
+                  <Badge tone={c.kind === "pago" ? "accent" : "info"}>{c.kind === "pago" ? "Pago" : "Orgânico"}</Badge>
+                  {canEdit && (
+                    <>
+                      <button onClick={() => setChannelModal({ ...c })} className="rounded p-1.5 text-muted" aria-label={`Editar ${c.channel}`}>
+                        <Pencil size={15} />
+                      </button>
+                      <button onClick={() => void removeChannel(c)} className="-mr-1.5 rounded p-1.5 text-muted active:text-danger" aria-label={`Excluir ${c.channel}`}>
+                        <Trash2 size={15} />
+                      </button>
+                    </>
+                  )}
+                </div>
+                <div className="mt-2.5 grid grid-cols-4 gap-2 text-[11px] text-muted">
+                  <div><div>Investido</div><div className="mono-num mt-0.5 text-[13px] text-white">{c.invested > 0 ? brl(c.invested, { compact: true }) : "—"}</div></div>
+                  <div><div>Leads</div><div className="mono-num mt-0.5 text-[13px] text-white">{num(c.leads)}</div></div>
+                  <div><div>Vendas</div><div className="mono-num mt-0.5 text-[13px] text-white">{num(c.sales)}</div></div>
+                  <div><div>ROAS</div><div className="mono-num mt-0.5 text-[13px] text-accent">{roas ? `${roas.toFixed(1).replace(".", ",")}x` : "—"}</div></div>
+                </div>
+              </li>
+            );
+          })}
+          {CHANNELS.length === 0 && (
+            <li className="px-4 py-10 text-center text-[13.5px] leading-relaxed text-muted">
+              Nenhum canal lançado neste mês.{canEdit && <><br />Toque em “Canal” para registrar.</>}
+            </li>
+          )}
+        </ul>
+
+        {/* Desktop: tabela */}
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-y border-border text-left font-mono text-[10px] uppercase tracking-wider text-muted">

@@ -30,25 +30,23 @@ export function ConnectBanner({
 
   return (
     <>
-      <div className="flex flex-col gap-4 rounded-2xl border border-dashed border-accent/40 bg-accent/[0.06] p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="mt-0.5 rounded-lg border border-accent/30 bg-bg/40 p-2 text-accent">
-            <Plug size={18} />
-          </div>
-          <div>
-            <div className="font-medium text-white">{title}</div>
-            <p className="mt-0.5 text-sm text-muted">{description}</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {integrations.map((i) => (
-                <span key={i} className="rounded-md border border-border bg-bg/50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted">
-                  {i}
-                </span>
-              ))}
-            </div>
+      <div className="flex items-center gap-3 rounded-2xl border border-dashed border-accent/40 bg-accent/[0.06] p-3.5 sm:gap-4 sm:p-5">
+        <div className="shrink-0 rounded-xl border border-accent/30 bg-bg/40 p-2 text-accent sm:self-start">
+          <Plug size={18} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[14px] font-medium leading-snug text-white sm:text-[15px]">{title}</div>
+          <p className="mt-0.5 hidden text-sm text-muted sm:block">{description}</p>
+          <div className="mt-1.5 flex gap-1.5 overflow-hidden [mask-image:linear-gradient(to_right,black_78%,transparent)] sm:mt-2 sm:flex-wrap sm:[mask-image:none]">
+            {integrations.map((i) => (
+              <span key={i} className="shrink-0 rounded-md border border-border bg-bg/50 px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-wider text-muted sm:px-2 sm:text-[10px]">
+                {i}
+              </span>
+            ))}
           </div>
         </div>
-        <button onClick={() => setOpen(true)} className="btn-primary shrink-0 px-4 py-2 text-sm">
-          {action} <ArrowRight size={15} />
+        <button onClick={() => setOpen(true)} className="btn-primary shrink-0 gap-1.5 px-3.5 py-2 text-[13px] sm:px-4 sm:text-sm">
+          {action} <ArrowRight size={15} className="hidden sm:block" />
         </button>
       </div>
 

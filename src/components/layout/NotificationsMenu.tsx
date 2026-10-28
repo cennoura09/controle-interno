@@ -61,7 +61,7 @@ export function NotificationsMenu({ size = 44 }: { size?: number }) {
       </button>
 
       {open && (
-        <Popover width={360} className="right-0">
+        <Popover width={360} sheetOnMobile>
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <div className="text-sm font-semibold">Notificações</div>
             {unread > 0 && (

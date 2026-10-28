@@ -24,7 +24,7 @@ import { data } from "../services";
 import { useAsync } from "../lib/useAsync";
 import type { NewTransaction, TransactionType } from "../lib/types";
 
-import { brl, delta, pct, ratio, shortDate } from "../lib/format";
+import { axisNumber, brl, delta, pct, ratio, shortDate } from "../lib/format";
 import { downloadCsv } from "../lib/csv";
 
 const MONTH_LABEL = new Date().toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
@@ -94,10 +94,11 @@ export function FinanceiroPage() {
     <PageHeader
       title="Financeiro"
       description="Receitas, despesas e faturamento. Conecte seu gateway de pagamento ou lance manualmente."
+      shortDescription="Receitas, despesas e faturamento."
       action={
         canRegister ? (
           <button onClick={() => setManualOpen(true)} className="btn-primary h-11 px-4 text-[15px] sm:h-[50px] sm:px-6 sm:text-[16px]">
-            <Plus size={20} strokeWidth={2.25} /> Novo lançamento
+            <Plus size={20} strokeWidth={2.25} /> <span className="sm:hidden">Lançar</span><span className="hidden sm:inline">Novo lançamento</span>
           </button>
         ) : (
           <span className="flex items-center gap-1.5 rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-xs text-muted">
@@ -151,26 +152,26 @@ export function FinanceiroPage() {
       )}
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard index="01" label="FATURAMENTO (MÊS)" value={brl(K.faturamento, { compact: true })} sub={`Receita bruta em ${MONTH_LABEL}`} delta={delta(K.faturamentoDelta)} />
-        <StatCard index="02" label="DESPESAS" value={brl(K.despesas, { compact: true })} sub="Custos + operação" delta={delta(K.despesasDelta)} deltaInvert />
-        <StatCard index="03" label="LUCRO LÍQUIDO" value={brl(K.lucroLiquido, { compact: true })} sub={`Margem de ${pct(ratio(K.lucroLiquido, K.faturamento))}`} delta={delta(K.lucroDelta)} />
-        <StatCard index="04" label="TICKET MÉDIO" value={brl(K.ticketMedio, { compact: true })} sub="Por cliente" delta={delta(K.ticketDelta)} deltaInvert />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <StatCard index="01" label="Faturamento (mês)" value={brl(K.faturamento, { compact: true })} sub={`Receita bruta em ${MONTH_LABEL}`} delta={delta(K.faturamentoDelta)} />
+        <StatCard index="02" label="Despesas" value={brl(K.despesas, { compact: true })} sub="Custos + operação" delta={delta(K.despesasDelta)} deltaInvert />
+        <StatCard index="03" label="Lucro líquido" value={brl(K.lucroLiquido, { compact: true })} sub={`Margem de ${pct(ratio(K.lucroLiquido, K.faturamento))}`} delta={delta(K.lucroDelta)} />
+        <StatCard index="04" label="Ticket médio" value={brl(K.ticketMedio, { compact: true })} sub="Por cliente" delta={delta(K.ticketDelta)} deltaInvert />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Gráfico Receita x Despesa */}
         <Card className="lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <SectionLabel index="05">RECEITA × DESPESA (6 MESES)</SectionLabel>
-            <div className="flex items-center gap-4 font-mono text-[11px]">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <SectionLabel index="05">Receita × despesa (6 meses)</SectionLabel>
+            <div className="flex items-center gap-4 text-[12px]">
               <span className="flex items-center gap-1.5 text-accent"><span className="h-2 w-2 rounded-full bg-accent" />Receita</span>
               <span className="flex items-center gap-1.5 text-info"><span className="h-2 w-2 rounded-full bg-info" />Despesa</span>
             </div>
           </div>
-          <div className="h-64">
+          <div className="-mx-1 h-52 sm:mx-0 sm:h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={REVENUE_SERIES} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
+              <AreaChart data={REVENUE_SERIES} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gRec" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#FF5C00" stopOpacity={0.35} />
@@ -183,7 +184,7 @@ export function FinanceiroPage() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272B" vertical={false} />
                 <XAxis dataKey="month" stroke="#5E5E66" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="#5E5E66" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${v / 1000}k`} />
+                <YAxis width={40} stroke="#5E5E66" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} tickFormatter={axisNumber} />
                 <Tooltip
                   contentStyle={{ background: "#141416", border: "1px solid #27272B", borderRadius: 10, fontSize: 12 }}
                   labelStyle={{ color: "#8A8A90" }}
@@ -199,7 +200,7 @@ export function FinanceiroPage() {
 
         {/* Mini indicadores */}
         <Card className="flex flex-col gap-4">
-          <SectionLabel index="06">INDICADORES</SectionLabel>
+          <SectionLabel index="06">Indicadores</SectionLabel>
           <MiniRow label="MRR" value={brl(K.mrr, { compact: true })} tone="accent" />
           <MiniRow label="Receita recorrente / total" value={pct(ratio(K.mrr, K.faturamento))} />
           <div className="flex items-center justify-between border-b border-border-soft pb-3">
@@ -213,7 +214,7 @@ export function FinanceiroPage() {
               )}
             </span>
           </div>
-          <div className="mt-auto rounded-lg border border-border bg-surface-2 p-3 text-xs text-muted">
+          <div className="mt-auto rounded-lg border border-border bg-surface-2 p-3 text-xs leading-relaxed text-muted">
             Nenhum gateway conectado — os valores vêm dos lançamentos manuais.
           </div>
         </Card>
@@ -221,16 +222,48 @@ export function FinanceiroPage() {
 
       {/* Transações */}
       <Card className="p-0">
-        <div className="flex items-center justify-between p-5 pb-3">
-          <SectionLabel index="07">TRANSAÇÕES RECENTES</SectionLabel>
-          <span className="flex items-center gap-3">
-            <span className="font-mono text-xs text-muted">{sorted.length} lançamentos</span>
+        <div className="flex items-center justify-between gap-3 p-4 pb-3 sm:p-5 sm:pb-3">
+          <SectionLabel index="07">Transações recentes</SectionLabel>
+          <span className="flex shrink-0 items-center gap-3">
+            <span className="hidden text-xs text-muted sm:inline">{sorted.length} lançamentos</span>
             <button onClick={exportCsv} className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs text-muted hover:text-white">
               <Download size={13} /> CSV
             </button>
           </span>
         </div>
-        <div className="overflow-x-auto">
+
+        {/* Celular: lista */}
+        <ul className="border-t border-border sm:hidden">
+          {sorted.map((t) => (
+            <li key={t.id} className="flex items-center gap-3 border-b border-border-soft px-4 py-3 last:border-0">
+              <span className={"grid h-9 w-9 shrink-0 place-items-center rounded-xl " + (t.type === "receita" ? "bg-success-soft text-success" : "bg-danger-soft text-danger")}>
+                {t.type === "receita" ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[14px] font-medium text-white">{t.description}</span>
+                <span className="block truncate text-[12px] text-muted">
+                  {shortDate(t.date)} · {t.category} · {t.source === "gateway" ? "Gateway" : "Manual"}
+                </span>
+              </span>
+              <span className={"mono-num shrink-0 text-[14px] font-semibold " + (t.type === "receita" ? "text-success" : "text-danger")}>
+                {t.type === "receita" ? "+" : "−"}{brl(t.amount, { compact: t.amount >= 100_000 })}
+              </span>
+              {canRegister && (
+                <button onClick={() => void removeTransaction(t.id, t.description)} className="-mr-1 shrink-0 rounded p-1.5 text-muted active:text-danger" aria-label={`Excluir ${t.description}`}>
+                  <Trash2 size={15} />
+                </button>
+              )}
+            </li>
+          ))}
+          {sorted.length === 0 && (
+            <li className="px-4 py-10 text-center text-[13.5px] leading-relaxed text-muted">
+              Nenhum lançamento ainda.{canRegister && <><br />Toque em “Lançar” para registrar.</>}
+            </li>
+          )}
+        </ul>
+
+        {/* Desktop: tabela */}
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-y border-border text-left font-mono text-[10px] uppercase tracking-wider text-muted">
@@ -245,7 +278,7 @@ export function FinanceiroPage() {
             <tbody>
               {sorted.map((t) => (
                 <tr key={t.id} className="border-b border-border-soft last:border-0 hover:bg-surface-2/50">
-                  <td className="whitespace-nowrap px-5 py-3 font-mono text-xs text-muted">{shortDate(t.date)}</td>
+                  <td className="whitespace-nowrap px-5 py-3 text-xs text-muted">{shortDate(t.date)}</td>
                   <td className="px-5 py-3">{t.description}</td>
                   <td className="px-5 py-3 text-muted">{t.category}</td>
                   <td className="px-5 py-3">
@@ -253,7 +286,7 @@ export function FinanceiroPage() {
                       {t.source === "gateway" ? "Gateway" : "Manual"}
                     </Badge>
                   </td>
-                  <td className={"whitespace-nowrap px-5 py-3 text-right font-mono " + (t.type === "receita" ? "text-success" : "text-danger")}>
+                  <td className={"mono-num whitespace-nowrap px-5 py-3 text-right " + (t.type === "receita" ? "text-success" : "text-danger")}>
                     <span className="inline-flex items-center gap-1">
                       {t.type === "receita" ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
                       {t.type === "receita" ? "+" : "−"}{brl(t.amount)}

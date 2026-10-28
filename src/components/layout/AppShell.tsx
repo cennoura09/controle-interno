@@ -29,7 +29,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Topbar />
         <MobileHeader />
         <main ref={mainRef} className="relative flex-1 overflow-y-auto overflow-x-hidden">
-          <div className="mx-auto max-w-[1360px] px-4 pb-32 pt-8 sm:px-6 lg:px-10 lg:pb-12 lg:pt-10">{children}</div>
+          <div className="mx-auto max-w-[1360px] px-4 pb-32 pt-6 sm:px-6 sm:pt-8 lg:px-10 lg:pb-12 lg:pt-10">{children}</div>
         </main>
       </div>
       <BottomNav />

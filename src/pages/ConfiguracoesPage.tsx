@@ -29,15 +29,15 @@ export function ConfiguracoesPage() {
 
   return (
     <div className="space-y-7">
-      <PageHeader title="Configurações" description="Seu perfil, segurança da conta, equipe e preferências do painel." />
+      <PageHeader title="Configurações" description="Seu perfil, segurança da conta, equipe e preferências do painel." shortDescription="Perfil, segurança e equipe." />
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[240px_1fr]">
-        <nav className="no-scrollbar flex gap-1 overflow-x-auto lg:flex-col">
+        <nav className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0 lg:flex-col">
           {sections.filter((s) => s.show).map((s) => (
             <button
               key={s.id}
               onClick={() => setSection(s.id)}
               className={cn(
-                "flex shrink-0 items-center gap-3 rounded-xl border px-4 py-3 text-left text-[15px] transition-colors",
+                "flex shrink-0 items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-left text-[14px] transition-colors sm:gap-3 sm:px-4 sm:py-3 sm:text-[15px]",
                 section === s.id
                   ? "border-accent/45 bg-accent/10 text-white"
                   : "border-transparent text-[#C9C9CF] hover:bg-white/[0.04]"
@@ -98,9 +98,9 @@ function PerfilSection() {
   return (
     <Card>
       <div className="flex items-center gap-4">
-        <Avatar initials={authUser.initials} size={64} className="text-xl" />
+        <Avatar initials={authUser.initials} size={56} className="text-lg sm:h-16 sm:w-16" />
         <div>
-          <div className="flex items-center gap-2 text-xl font-semibold text-white">
+          <div className="flex items-center gap-2 text-lg font-semibold text-white sm:text-xl">
             {authUser.name}
             {authUser.isSuperAdmin && <Crown size={17} className="text-accent" />}
           </div>

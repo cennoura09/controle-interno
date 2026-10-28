@@ -11,7 +11,7 @@ import { data } from "../services";
 import { useAsync } from "../lib/useAsync";
 import { PRIORITIES, PRIORITY_META, SECTORS } from "../lib/labels";
 import { daysUntil } from "../lib/dates";
-import { brl, num, pct, ratio } from "../lib/format";
+import { axisNumber, brl, num, pct, ratio } from "../lib/format";
 import { downloadCsv } from "../lib/csv";
 import { cn } from "../lib/cn";
 
@@ -26,14 +26,15 @@ export function RelatoriosPage() {
       <PageHeader
         title="Relatórios"
         description="Indicadores consolidados da operação, com exportação em CSV para planilhas."
+        shortDescription="Indicadores e exportação em CSV."
       />
-      <div className="flex h-[54px] w-fit items-center gap-1 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-1.5">
+      <div className="grid h-12 w-full grid-cols-3 items-center gap-1 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-1.5 sm:flex sm:h-[54px] sm:w-fit">
         {(["tarefas", "financeiro", "marketing"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={cn(
-              "h-full rounded-xl px-5 text-[15px] capitalize transition-all",
+              "h-full rounded-xl px-3 text-[14px] capitalize transition-all sm:px-5 sm:text-[15px]",
               tab === t ? "bg-gradient-to-b from-[#FF6A14] to-[#F25500] font-medium text-white" : "text-[#D4D4D8] hover:text-white"
             )}
           >
@@ -50,10 +51,10 @@ export function RelatoriosPage() {
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="card p-4 lg:p-5">
-      <div className="mono-label text-[10.5px]">{label}</div>
-      <div className="mono-num mt-2 text-[26px] font-semibold leading-none text-white">{value}</div>
-      {sub && <div className="mt-1.5 text-[12.5px] text-muted">{sub}</div>}
+    <div className="card min-w-0 p-3.5 sm:p-4 lg:p-5">
+      <div className="mono-label truncate text-[10px] sm:text-[10.5px]">{label}</div>
+      <div className="mono-num mt-2 truncate text-[22px] font-semibold leading-none text-white sm:text-[26px]">{value}</div>
+      {sub && <div className="mt-1.5 truncate text-[12px] text-muted sm:text-[12.5px]">{sub}</div>}
     </div>
   );
 }
@@ -114,7 +115,7 @@ function TasksReport() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr]">
         <Card>
           <SectionLabel index="01">Tarefas por setor e status</SectionLabel>
-          <div className="mt-4 h-64">
+          <div className="mt-4 h-56 sm:h-64">
             {sectorData.length === 0 ? (
               <p className="pt-10 text-center text-sm text-muted">Sem tarefas ainda.</p>
             ) : (
@@ -158,7 +159,7 @@ function TasksReport() {
       </div>
 
       <Card className="p-0">
-        <div className="flex items-center justify-between p-5 pb-3">
+        <div className="flex items-center justify-between gap-3 p-4 pb-3 sm:p-5 sm:pb-3">
           <SectionLabel index="03">Por responsável</SectionLabel>
           <ExportButton
             onClick={() =>
@@ -169,7 +170,30 @@ function TasksReport() {
             }
           />
         </div>
-        <div className="overflow-x-auto">
+        <ul className="border-t border-border sm:hidden">
+          {people.map((p) => (
+            <li key={p.user.id} className="border-b border-border-soft px-4 py-3.5 last:border-0">
+              <div className="flex items-center gap-3">
+                <Avatar initials={p.user.initials} size={34} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14.5px] font-medium text-white">{p.user.name}</span>
+                  <span className="block truncate text-[12px] text-muted">{p.user.role} · {p.user.sector}</span>
+                </span>
+                <span className="mono-num text-[13px] text-muted">{pct(ratio(p.done, p.total), 0)}</span>
+              </div>
+              <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                <div className="h-full rounded-full bg-accent" style={{ width: `${ratio(p.done, p.total) * 100}%` }} />
+              </div>
+              <div className="mt-2 flex gap-4 text-[12px] text-muted">
+                <span><span className="mono-num text-white">{p.open}</span> abertas</span>
+                <span><span className="mono-num text-success">{p.done}</span> concluídas</span>
+                <span><span className={cn("mono-num", p.overdue > 0 ? "text-danger" : "text-white")}>{p.overdue}</span> atrasadas</span>
+              </div>
+            </li>
+          ))}
+          {people.length === 0 && <li className="px-4 py-10 text-center text-[13.5px] text-muted">Sem tarefas atribuídas ainda.</li>}
+        </ul>
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full min-w-[600px] text-sm">
             <thead>
               <tr className="border-y border-border text-left font-mono text-[10px] uppercase tracking-wider text-muted">
@@ -243,12 +267,12 @@ function FinanceReport() {
       </div>
       <Card>
         <SectionLabel index="01">Receita × despesa por mês</SectionLabel>
-        <div className="mt-4 h-64">
+        <div className="mt-4 h-56 sm:h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={loaded.series} margin={{ top: 4, right: 4, left: -8, bottom: 0 }} maxBarSize={36}>
               <CartesianGrid strokeDasharray="3 3" stroke="#27272B" vertical={false} />
               <XAxis dataKey="month" stroke="#5E5E66" fontSize={11} tickLine={false} axisLine={false} />
-              <YAxis stroke="#5E5E66" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${v / 1000}k`} />
+              <YAxis stroke="#5E5E66" fontSize={11} tickLine={false} axisLine={false} width={40} allowDecimals={false} tickFormatter={axisNumber} />
               <Tooltip contentStyle={TOOLTIP} cursor={{ fill: "rgba(255,255,255,0.03)" }} formatter={(v: number) => brl(v, { compact: true })} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Bar dataKey="receita" name="Receita" fill="#FF5C00" radius={[6, 6, 0, 0]} />
@@ -258,7 +282,7 @@ function FinanceReport() {
         </div>
       </Card>
       <Card className="p-0">
-        <div className="flex items-center justify-between p-5 pb-3">
+        <div className="flex items-center justify-between gap-3 p-4 pb-3 sm:p-5 sm:pb-3">
           <SectionLabel index="02">Por categoria</SectionLabel>
           <ExportButton
             onClick={() =>
@@ -269,7 +293,24 @@ function FinanceReport() {
             }
           />
         </div>
-        <table className="w-full text-sm">
+        <ul className="border-t border-border sm:hidden">
+          {rows.map(([cat, v]) => (
+            <li key={cat} className="border-b border-border-soft px-4 py-3 last:border-0">
+              <div className="flex items-center justify-between gap-3">
+                <span className="truncate text-[14.5px] font-medium text-white">{cat}</span>
+                <span className={cn("mono-num shrink-0 text-[14px] font-semibold", v.receita - v.despesa >= 0 ? "text-white" : "text-danger")}>
+                  {brl(v.receita - v.despesa, { compact: true })}
+                </span>
+              </div>
+              <div className="mt-1 flex gap-4 text-[12px] text-muted">
+                <span>Receitas <span className="mono-num text-success">{brl(v.receita, { compact: true })}</span></span>
+                <span>Despesas <span className="mono-num text-danger">{brl(v.despesa, { compact: true })}</span></span>
+              </div>
+            </li>
+          ))}
+          {rows.length === 0 && <li className="px-4 py-10 text-center text-[13.5px] text-muted">Nenhum lançamento ainda.</li>}
+        </ul>
+        <table className="hidden w-full text-sm sm:table">
           <thead>
             <tr className="border-y border-border text-left font-mono text-[10px] uppercase tracking-wider text-muted">
               <th className="px-5 py-2.5 font-medium">Categoria</th>
@@ -308,7 +349,7 @@ function MarketingReport() {
         <Stat label="ROAS" value={`${kpis.roas.toFixed(1).replace(".", ",")}x`} />
       </div>
       <Card className="p-0">
-        <div className="flex items-center justify-between p-5 pb-3">
+        <div className="flex items-center justify-between gap-3 p-4 pb-3 sm:p-5 sm:pb-3">
           <SectionLabel index="01">Eficiência por canal (mês)</SectionLabel>
           <ExportButton
             onClick={() =>
@@ -323,7 +364,21 @@ function MarketingReport() {
             }
           />
         </div>
-        <div className="overflow-x-auto">
+        <ul className="border-t border-border sm:hidden">
+          {channels.map((c) => (
+            <li key={c.id} className="border-b border-border-soft px-4 py-3.5 last:border-0">
+              <div className="truncate text-[14.5px] font-semibold text-white">{c.channel}</div>
+              <div className="mt-2 grid grid-cols-4 gap-2 text-[11px] text-muted">
+                <div><div>CPL</div><div className="mono-num mt-0.5 text-[13px] text-white">{c.invested && c.leads ? brl(c.invested / c.leads, { compact: true }) : "—"}</div></div>
+                <div><div>Conversão</div><div className="mono-num mt-0.5 text-[13px] text-white">{pct(ratio(c.sales, c.leads))}</div></div>
+                <div><div>Ticket</div><div className="mono-num mt-0.5 text-[13px] text-white">{c.sales ? brl(c.revenue / c.sales, { compact: true }) : "—"}</div></div>
+                <div><div>ROAS</div><div className="mono-num mt-0.5 text-[13px] text-accent">{c.invested ? `${(c.revenue / c.invested).toFixed(1).replace(".", ",")}x` : "—"}</div></div>
+              </div>
+            </li>
+          ))}
+          {channels.length === 0 && <li className="px-4 py-10 text-center text-[13.5px] text-muted">Nenhum canal lançado neste mês.</li>}
+        </ul>
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-y border-border text-left font-mono text-[10px] uppercase tracking-wider text-muted">

@@ -58,6 +58,7 @@ export function VisaoGeralPage() {
       <PageHeader
         title="Visão geral"
         description={`${greeting}, ${firstName}. Aqui está o resumo da operação: tarefas, financeiro e marketing em um só lugar.`}
+        shortDescription={`${greeting}, ${firstName}. Resumo da operação.`}
         action={
           <button onClick={() => openNewTask()} className="btn-primary h-11 px-4 text-[15px] sm:h-[50px] sm:px-6 sm:text-[16px]">
             <Plus size={20} strokeWidth={2.25} /> Nova tarefa
@@ -68,16 +69,16 @@ export function VisaoGeralPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         <Kpi icon={<ListTodo size={18} />} label="Tarefas abertas" value={num(open.length)} sub={`${mine.length} com você`} to="/tarefas" />
         <Kpi icon={<AlertTriangle size={18} />} label="Atrasadas" value={num(overdue.length)} sub="prazo vencido" tone={overdue.length ? "danger" : undefined} to="/tarefas" />
-        <Kpi icon={<Wallet size={18} />} label="Faturamento (mês)" value={brl(extra?.finance?.faturamento ?? 0, { compact: true })} sub={`Lucro ${brl(extra?.finance?.lucroLiquido ?? 0, { compact: true })}`} to="/financeiro" />
-        <Kpi icon={<Megaphone size={18} />} label="Leads (mês)" value={num(extra?.marketing?.leads ?? 0)} sub={`${extra?.marketing?.vendas ?? 0} vendas`} to="/marketing" />
+        <Kpi icon={<Wallet size={18} />} label="Faturamento" value={brl(extra?.finance?.faturamento ?? 0, { compact: true })} sub={`Lucro ${brl(extra?.finance?.lucroLiquido ?? 0, { compact: true })}`} to="/financeiro" />
+        <Kpi icon={<Megaphone size={18} />} label="Leads do mês" value={num(extra?.marketing?.leads ?? 0)} sub={`${extra?.marketing?.vendas ?? 0} vendas`} to="/marketing" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
         {/* Minhas próximas tarefas */}
         <Card className="p-0">
-          <div className="flex items-center justify-between p-5 pb-3">
-            <SectionLabel index="01">Minhas próximas tarefas</SectionLabel>
-            <Link to="/tarefas" className="flex items-center gap-1 text-xs text-accent hover:underline">
+          <div className="flex items-center justify-between gap-3 p-4 pb-3 sm:p-5 sm:pb-3">
+            <SectionLabel index="01">Minhas tarefas</SectionLabel>
+            <Link to="/tarefas" className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-accent hover:underline">
               Ver quadro <ArrowRight size={13} />
             </Link>
           </div>
@@ -86,14 +87,20 @@ export function VisaoGeralPage() {
               const tone = dueTone(t.dueDate);
               return (
                 <li key={t.id}>
-                  <button onClick={() => openTask(t.id)} className="flex w-full items-center gap-3 border-t border-white/[0.05] px-5 py-3.5 text-left hover:bg-white/[0.025]">
-                    <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", t.status === "doing" ? "bg-[#FF8A1F]" : "bg-accent")} />
+                  <button onClick={() => openTask(t.id)} className="flex w-full items-start gap-3 border-t border-white/[0.05] px-4 py-3.5 text-left hover:bg-white/[0.025] sm:items-center sm:px-5">
+                    <span className={cn("mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full sm:mt-0", t.status === "doing" ? "bg-[#FF8A1F]" : "bg-accent")} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] font-medium text-white">{t.title}</span>
-                      <span className="font-mono text-[11px] uppercase tracking-wider text-muted">{t.sector}</span>
+                      <span className="block truncate text-[14.5px] font-medium text-white sm:text-[15px]">{t.title}</span>
+                      <span className="mt-1 flex items-center gap-3 sm:mt-0">
+                        <span className="font-mono text-[10.5px] uppercase tracking-wider text-muted">{t.sector}</span>
+                        <span className="sm:hidden"><PriorityBadge priority={t.priority} /></span>
+                        <span className={cn("flex items-center gap-1 text-[12px] sm:hidden", tone === "danger" ? "text-danger" : tone === "accent" ? "text-accent" : "text-muted")}>
+                          <Clock size={12} /> {dueLabel(t.dueDate)}
+                        </span>
+                      </span>
                     </span>
-                    <PriorityBadge priority={t.priority} />
-                    <span className={cn("flex w-20 items-center justify-end gap-1 text-[13px]", tone === "danger" ? "text-danger" : tone === "accent" ? "text-accent" : "text-muted")}>
+                    <span className="hidden sm:inline"><PriorityBadge priority={t.priority} /></span>
+                    <span className={cn("hidden w-20 items-center justify-end gap-1 text-[13px] sm:flex", tone === "danger" ? "text-danger" : tone === "accent" ? "text-accent" : "text-muted")}>
                       <Clock size={14} /> {dueLabel(t.dueDate)}
                     </span>
                   </button>
@@ -111,15 +118,15 @@ export function VisaoGeralPage() {
 
         {/* Atividade recente */}
         <Card className="p-0">
-          <div className="p-5 pb-3">
+          <div className="p-4 pb-3 sm:p-5 sm:pb-3">
             <SectionLabel index="02">Atividade recente</SectionLabel>
           </div>
-          <ul className="max-h-[420px] overflow-y-auto">
+          <ul className="max-h-[360px] overflow-y-auto sm:max-h-[420px]">
             {(extra?.activity ?? []).map((a) => {
               const actor = name(a.actorId);
               return (
                 <li key={a.id}>
-                  <button onClick={() => openTask(a.taskId)} className="flex w-full items-start gap-3 border-t border-white/[0.05] px-5 py-3 text-left hover:bg-white/[0.025]">
+                  <button onClick={() => openTask(a.taskId)} className="flex w-full items-start gap-3 border-t border-white/[0.05] px-4 py-3 text-left hover:bg-white/[0.025] sm:px-5">
                     <Avatar initials={actor?.initials ?? "?"} size={30} className="text-[10px]" />
                     <span className="min-w-0 flex-1 text-[13.5px] leading-snug text-[#C9C9CF]">
                       <span className="font-semibold text-white">{actor?.name.split(" ")[0] ?? "Alguém"}</span> {a.action} em{" "}
@@ -163,11 +170,11 @@ export function VisaoGeralPage() {
         </Card>
 
         <Card>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <SectionLabel index="04">Receita × despesa (6 meses)</SectionLabel>
-            <Link to="/financeiro" className="text-xs text-accent hover:underline">Financeiro</Link>
+            <Link to="/financeiro" className="shrink-0 text-xs text-accent hover:underline">Financeiro</Link>
           </div>
-          <div className="mt-4 h-52">
+          <div className="mt-4 h-44 sm:h-52">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={extra?.series ?? []} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
                 <defs>
@@ -208,13 +215,13 @@ function Kpi({
   to: string;
 }) {
   return (
-    <Link to={to} className="card group block p-4 transition-colors hover:border-white/20 lg:p-5">
-      <div className="flex items-center gap-2 text-[13px] text-muted">
-        <span className={cn("grid h-8 w-8 place-items-center rounded-lg bg-white/[0.05]", tone === "danger" ? "text-danger" : "text-accent")}>{icon}</span>
-        {label}
+    <Link to={to} className="card group block min-w-0 p-3.5 transition-colors hover:border-white/20 sm:p-4 lg:p-5">
+      <div className="flex min-w-0 items-center gap-2 text-[12.5px] text-muted sm:text-[13px]">
+        <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white/[0.05] sm:h-8 sm:w-8", tone === "danger" ? "text-danger" : "text-accent")}>{icon}</span>
+        <span className="truncate">{label}</span>
       </div>
-      <div className={cn("mono-num mt-3 text-[28px] font-semibold leading-none tracking-tight", tone === "danger" ? "text-danger" : "text-white")}>{value}</div>
-      <div className="mt-1.5 text-[12.5px] text-muted">{sub}</div>
+      <div className={cn("mono-num mt-3 truncate text-[24px] font-semibold leading-none tracking-tight sm:text-[28px]", tone === "danger" ? "text-danger" : "text-white")}>{value}</div>
+      <div className="mt-1.5 truncate text-[12px] text-muted sm:text-[12.5px]">{sub}</div>
     </Link>
   );
 }

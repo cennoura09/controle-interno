@@ -49,7 +49,7 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
       </button>
 
       {open && (
-        <Popover width={320}>
+        <Popover width={320} sheetOnMobile>
           <div className="border-b border-border px-4 py-3">
             <div className="mono-label mb-1">Conectado como</div>
             <div className="flex items-center gap-2 text-sm font-medium">

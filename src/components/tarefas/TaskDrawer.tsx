@@ -141,7 +141,7 @@ function TaskDetailView({ id }: { id: string }) {
   return (
     <div className="flex h-full flex-col">
       {/* Topo */}
-      <div className="flex items-center justify-between px-5 pt-5 sm:px-7">
+      <div className="flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] sm:px-7 sm:pt-5">
         <div className="flex items-center gap-2 text-[14px] text-[#9A9AA2]">
           <LogoMark size={18} className="shadow-none" />
           <button onClick={closeTask} className="hover:text-white">Tarefas</button>
@@ -164,7 +164,7 @@ function TaskDetailView({ id }: { id: string }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pb-8 sm:px-7">
+      <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-7 sm:pb-8">
         {/* Cabeçalho da tarefa */}
         <div className="mt-5 flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0 flex-1">
@@ -175,7 +175,7 @@ function TaskDetailView({ id }: { id: string }) {
               <PriorityBadge priority={task.priority} />
             </div>
             <EditableTitle value={task.title} disabled={!canEdit} onSave={(title) => patch({ title })} />
-            {summary && <p className="mt-2 max-w-[520px] text-[15px] leading-relaxed text-[#A6A6AE]">{summary}</p>}
+            {summary && <p className="mt-2 max-w-[520px] text-[14px] leading-relaxed text-[#A6A6AE] sm:text-[15px]">{summary}</p>}
           </div>
 
           <div className="w-full shrink-0 md:w-[250px]">
@@ -215,7 +215,7 @@ function TaskDetailView({ id }: { id: string }) {
         </div>
 
         {/* Campos */}
-        <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="mt-5 grid grid-cols-2 gap-2.5 sm:mt-6 sm:gap-3 md:grid-cols-4">
           <AssigneeField task={task} assignee={assignee} canEdit={canEdit} onChange={(assigneeId) => patch({ assigneeId })} />
           <SectorField task={task} canEdit={canEdit} onChange={(sector) => patch({ sector })} />
           <DueField task={task} canEdit={canEdit} onChange={(dueDate) => patch({ dueDate })} />
@@ -249,7 +249,7 @@ function TaskDetailView({ id }: { id: string }) {
               key={t.id}
               onClick={() => setTab(t.id)}
               className={cn(
-                "relative shrink-0 pb-3 text-[15px] transition-colors",
+                "relative shrink-0 pb-3 text-[14px] transition-colors sm:text-[15px]",
                 tab === t.id ? "font-medium text-accent" : "text-[#C9C9CF] hover:text-white"
               )}
             >
@@ -357,8 +357,8 @@ function useTaskActionsSafe(task: Task | undefined): MenuEntry[] {
 
 function InfoCard({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3.5">
-      <div className="mb-2 flex items-center gap-2 text-[13px] text-[#9A9AA2]">
+    <div className="min-w-0 rounded-xl border border-white/[0.08] bg-white/[0.02] px-3.5 py-3 sm:px-4 sm:py-3.5">
+      <div className="mb-2 flex items-center gap-2 text-[12px] text-[#9A9AA2] sm:text-[13px]">
         <span className="text-[#9A9AA2]">{icon}</span>
         {label}
       </div>
@@ -495,7 +495,7 @@ function EditableTitle({ value, disabled, onSave }: { value: string; disabled: b
             setEditing(false);
           }
         }}
-        className="mt-3 w-full rounded-lg border border-accent/50 bg-transparent px-2 py-1 text-[26px] font-bold tracking-[-0.01em] text-white outline-none"
+        className="mt-3 w-full rounded-lg border border-accent/50 bg-transparent px-2 py-1 text-[22px] font-bold sm:text-[26px] tracking-[-0.01em] text-white outline-none"
       />
     );
   }
@@ -503,7 +503,7 @@ function EditableTitle({ value, disabled, onSave }: { value: string; disabled: b
     <h2
       onClick={() => !disabled && setEditing(true)}
       className={cn(
-        "mt-3 text-[26px] font-bold leading-tight tracking-[-0.015em] text-white",
+        "mt-3 text-[22px] font-bold leading-tight tracking-[-0.015em] text-white sm:text-[26px]",
         !disabled && "cursor-text rounded-lg hover:bg-white/[0.03]"
       )}
       title={disabled ? undefined : "Clique para editar"}

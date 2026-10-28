@@ -100,20 +100,24 @@ export function Popover({
   align = "right",
   width = 220,
   className,
+  sheetOnMobile = false,
 }: {
   children: ReactNode;
   align?: "left" | "right";
   width?: number;
   className?: string;
+  /** No celular vira um painel fixo de borda a borda, logo abaixo do cabeçalho. */
+  sheetOnMobile?: boolean;
 }) {
   return (
     <div
       className={cn(
-        "absolute top-full z-50 mt-2 overflow-hidden rounded-xl border border-border bg-[#141416] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)]",
+        "absolute top-full z-50 mt-2 w-[min(var(--pop-w),calc(100vw-24px))] overflow-hidden rounded-xl border border-border bg-[#141416] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)]",
         align === "right" ? "right-0" : "left-0",
+        sheetOnMobile && "max-sm:fixed max-sm:inset-x-3 max-sm:top-[84px] max-sm:mt-0 max-sm:w-auto max-sm:rounded-2xl",
         className
       )}
-      style={{ width }}
+      style={{ "--pop-w": `${width}px` } as React.CSSProperties}
       onClick={(e) => e.stopPropagation()}
     >
       {children}

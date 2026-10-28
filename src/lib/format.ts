@@ -36,3 +36,8 @@ export function shortDate(iso?: string): string {
     .toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })
     .replace(".", "");
 }
+
+/** Eixo de gráfico: "0", "850", "12 mil", "1,2 mi". */
+export function axisNumber(value: number): string {
+  return new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+}
