@@ -329,7 +329,12 @@ Deno.serve(async (req) => {
           const msg = await res.json().then((b) => (res.ok ? "ok" : b?.message ?? b?.error ?? "")).catch(() => "");
           return { path: path.split("?")[0], status: res.status, msg };
         };
+        // Impressão digital (não reversível) para comparar com o valor do painel.
+        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token()));
+        const fingerprint = [...new Uint8Array(digest)].slice(0, 6).map((b) => b.toString(16).padStart(2, "0")).join("");
         return json({
+          fingerprint,
+          length: token().length,
           data: await Promise.all([
             probe("/v1/payment_methods"),
             probe("/users/me"),
