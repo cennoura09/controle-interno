@@ -5,7 +5,7 @@
 // leitura/escrita vai para a Edge Function `controle-interno`
 // (supabase/functions/controle-interno), que valida o token e chama as funções
 // public.ci_* do banco — onde as permissões são revalidadas
-// (db/supabase/001_schema.sql).
+// (db/supabase/*.sql).
 //
 // Ative com:
 //   VITE_DATA_SOURCE=supabase
@@ -15,7 +15,14 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
+  ActivityEntry,
+  AppNotification,
+  AppSettings,
+  ChannelInput,
   ChannelPerformance,
+  ChecklistItem,
+  ChecklistPatch,
+  FilePayload,
   FinanceKpis,
   FunnelStage,
   MarketingKpis,
@@ -24,6 +31,10 @@ import type {
   NewTransaction,
   NewUser,
   Task,
+  TaskComment,
+  TaskDetail,
+  TaskFile,
+  TaskPatch,
   TaskStatus,
   Transaction,
   TrendPoint,
@@ -74,6 +85,18 @@ export class SupabaseDataSource implements DataSource {
     return this.call<User>("ci_me");
   }
 
+  async heartbeat(): Promise<void> {
+    await this.call<null>("ci_heartbeat");
+  }
+
+  updateProfile(name: string, title: string): Promise<User> {
+    return this.call<User>("ci_update_profile", { name, title });
+  }
+
+  updateUser(id: string, patch: Partial<Pick<User, "name" | "title" | "role" | "sector">>): Promise<User> {
+    return this.call<User>("ci_update_user", { id, patch });
+  }
+
   // ---- Equipe / usuários ----
   listUsers(): Promise<User[]> {
     return this.call<User[]>("ci_list_users");
@@ -104,8 +127,64 @@ export class SupabaseDataSource implements DataSource {
     return this.call<Task>("ci_update_task_status", { id, status });
   }
 
+  updateTask(id: string, patch: TaskPatch): Promise<Task> {
+    return this.call<Task>("ci_update_task", { id, patch });
+  }
+
   async deleteTask(id: string): Promise<void> {
     await this.call<null>("ci_delete_task", { id });
+  }
+
+  getTaskDetail(id: string): Promise<TaskDetail> {
+    return this.call<TaskDetail>("ci_task_detail", { id });
+  }
+
+  addChecklistItem(
+    taskId: string,
+    input: { text: string; dueDate?: string; assigneeId?: string }
+  ): Promise<ChecklistItem> {
+    return this.call<ChecklistItem>("ci_add_checklist_item", { taskId, ...input });
+  }
+
+  updateChecklistItem(id: string, patch: ChecklistPatch): Promise<ChecklistItem> {
+    return this.call<ChecklistItem>("ci_update_checklist_item", { id, patch });
+  }
+
+  async deleteChecklistItem(id: string): Promise<void> {
+    await this.call<null>("ci_delete_checklist_item", { id });
+  }
+
+  addComment(taskId: string, body: string): Promise<TaskComment> {
+    return this.call<TaskComment>("ci_add_comment", { taskId, body });
+  }
+
+  async deleteComment(id: string): Promise<void> {
+    await this.call<null>("ci_delete_comment", { id });
+  }
+
+  uploadFile(taskId: string, file: FilePayload): Promise<TaskFile> {
+    return this.call<TaskFile>("ci_upload_file", { taskId, ...file });
+  }
+
+  getFile(id: string): Promise<FilePayload> {
+    return this.call<FilePayload>("ci_get_file", { id });
+  }
+
+  async deleteFile(id: string): Promise<void> {
+    await this.call<null>("ci_delete_file", { id });
+  }
+
+  recentActivity(limit = 20): Promise<ActivityEntry[]> {
+    return this.call<ActivityEntry[]>("ci_recent_activity", { limit });
+  }
+
+  // ---- Notificações ----
+  listNotifications(): Promise<AppNotification[]> {
+    return this.call<AppNotification[]>("ci_notifications");
+  }
+
+  async markNotificationsRead(ids?: number[]): Promise<void> {
+    await this.call<null>("ci_mark_notifications_read", ids ? { ids } : {});
   }
 
   // ---- Financeiro ----
@@ -125,6 +204,18 @@ export class SupabaseDataSource implements DataSource {
     return this.call<Transaction>("ci_create_transaction", { ...input });
   }
 
+  async deleteTransaction(id: string): Promise<void> {
+    await this.call<null>("ci_delete_transaction", { id });
+  }
+
+  getSettings(): Promise<AppSettings> {
+    return this.call<AppSettings>("ci_get_settings");
+  }
+
+  setSetting(key: string, value: number): Promise<AppSettings> {
+    return this.call<AppSettings>("ci_set_setting", { key, value });
+  }
+
   // ---- Marketing ----
   getMarketingKpis(): Promise<MarketingKpis> {
     return this.call<MarketingKpis>("ci_marketing_kpis");
@@ -140,5 +231,21 @@ export class SupabaseDataSource implements DataSource {
 
   getLeadsTrend(): Promise<TrendPoint[]> {
     return this.call<TrendPoint[]>("ci_leads_trend");
+  }
+
+  upsertChannel(input: ChannelInput): Promise<ChannelPerformance> {
+    return this.call<ChannelPerformance>("ci_upsert_channel", { channel: input });
+  }
+
+  async deleteChannel(id: string): Promise<void> {
+    await this.call<null>("ci_delete_channel", { id });
+  }
+
+  setFunnel(stages: FunnelStage[]): Promise<FunnelStage[]> {
+    return this.call<FunnelStage[]>("ci_set_funnel", { stages });
+  }
+
+  setLeadsDay(day: string, value: number): Promise<TrendPoint[]> {
+    return this.call<TrendPoint[]>("ci_set_leads_day", { day, value });
   }
 }

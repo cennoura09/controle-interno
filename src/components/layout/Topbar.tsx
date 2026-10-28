@@ -1,27 +1,28 @@
-import { Bell, Search } from "lucide-react";
-import { RoleSwitcher } from "./RoleSwitcher";
+import { Search } from "lucide-react";
+import { useUI } from "../../context/UIContext";
+import { NotificationsMenu } from "./NotificationsMenu";
+import { UserMenu } from "./UserMenu";
 
+const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+
+/** Barra superior (desktop): busca global, notificações e usuário. */
 export function Topbar() {
+  const { openPalette } = useUI();
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-end gap-4 border-b border-border bg-bg/80 px-4 backdrop-blur-md sm:px-6">
-      <div className="flex items-center gap-2 sm:gap-3">
-        <button
-          className="focus-ring hidden items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-xs text-muted hover:border-muted-2 md:flex"
-          aria-label="Buscar"
-        >
-          <Search size={14} />
-          <span>Buscar…</span>
-          <kbd className="ml-2 rounded border border-border px-1 font-mono text-[10px]">⌘K</kbd>
-        </button>
-        <button
-          className="focus-ring relative rounded-lg border border-border bg-surface p-2 text-muted hover:text-content"
-          aria-label="Notificações"
-        >
-          <Bell size={16} />
-          <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-accent" />
-        </button>
-        <RoleSwitcher />
-      </div>
+    <header className="sticky top-0 z-30 hidden h-[88px] shrink-0 items-center gap-6 border-b border-white/[0.06] bg-bg/80 px-10 backdrop-blur-md lg:flex">
+      <button
+        onClick={openPalette}
+        className="focus-ring flex h-[50px] w-full max-w-[500px] items-center gap-3.5 rounded-xl border border-white/[0.09] bg-white/[0.02] px-4 text-left text-[15px] text-[#8E8E96] transition-colors hover:border-white/20"
+      >
+        <Search size={21} strokeWidth={1.75} className="text-[#C9C9CF]" />
+        <span className="flex-1">Buscar tarefas, pessoas, setores...</span>
+        <kbd className="rounded-md border border-white/10 bg-white/[0.05] px-2 py-0.5 font-mono text-[12px] text-[#C9C9CF]">
+          {isMac ? "⌘ K" : "Ctrl K"}
+        </kbd>
+      </button>
+      <div className="flex-1" />
+      <NotificationsMenu />
+      <UserMenu />
     </header>
   );
 }

@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
-import { UserPlus, ArrowLeft, Lock, Check, KeyRound, Power } from "lucide-react";
+import { UserPlus, ArrowLeft, Lock, Check, KeyRound, Power, Pencil } from "lucide-react";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
 import { Avatar, Badge } from "../ui/Badge";
 import { useSession } from "../../context/SessionContext";
 import { data } from "../../services";
+import { isOnline } from "../../lib/dates";
 import {
   canCreateAccounts,
+  isGlobalRole,
   creatableRoles,
   creatableSectors,
   sectorForRole,
@@ -48,13 +50,25 @@ export function GerenciarEquipeModal({
   open: boolean;
   onClose: () => void;
 }) {
+  const { users } = useSession();
+  return (
+    <Modal open={open} onClose={onClose} title="Equipe — So Sales" description={`${users.length} membros ativos`}>
+      <EquipePanel listClassName="max-h-[22rem]" />
+    </Modal>
+  );
+}
+
+/** Lista da equipe + criação de contas + ações de admin (usado no modal e em Configurações). */
+export function EquipePanel({ listClassName }: { listClassName?: string }) {
   const { currentUser, authUser, users, allUsers, createUser, replaceUser, hasAuth } =
     useSession();
   const canCreate = canCreateAccounts(currentUser);
   const superAdmin = authUser.isSuperAdmin === true;
+  const canEditMembers = isGlobalRole(currentUser.role);
   const listed = superAdmin ? allUsers : users;
   const [mode, setMode] = useState<"list" | "create">("list");
   const [loginFor, setLoginFor] = useState<string | null>(null);
+  const [editFor, setEditFor] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const groups = useMemo(
@@ -75,124 +89,175 @@ export function GerenciarEquipeModal({
     }
   }
 
-  function close() {
-    setMode("list");
-    setLoginFor(null);
-    setActionError(null);
-    onClose();
+  if (mode === "create") {
+    return (
+      <CriarContaForm
+        onCancel={() => setMode("list")}
+        onCreate={async (input) => {
+          await createUser(input);
+          setMode("list");
+        }}
+        creator={currentUser}
+        withLogin={hasAuth}
+      />
+    );
   }
 
   return (
-    <Modal
-      open={open}
-      onClose={close}
-      title={mode === "list" ? "Equipe — So Sales" : "Criar conta"}
-      description={
-        mode === "list"
-          ? `${users.length} membros ativos`
-          : "Provisione o acesso de um novo membro."
-      }
-    >
-      {mode === "list" ? (
-        <>
-          {/* Ação de criar conta */}
-          <div className="mb-3 flex items-center justify-between">
-            <span className="mono-label">MEMBROS</span>
-            {canCreate ? (
-              <Button
-                variant="primary"
-                icon={<UserPlus size={15} />}
-                onClick={() => setMode("create")}
-              >
-                Criar conta
-              </Button>
-            ) : (
-              <span className="flex items-center gap-1.5 text-[11px] text-muted-2">
-                <Lock size={12} />
-                Apenas diretores e CEO/Founder criam contas
-              </span>
-            )}
-          </div>
+    <>
+      {/* Ação de criar conta */}
+      <div className="mb-3 flex items-center justify-between">
+        <span className="mono-label">MEMBROS</span>
+        {canCreate ? (
+          <Button
+            variant="primary"
+            icon={<UserPlus size={15} />}
+            onClick={() => setMode("create")}
+          >
+            Criar conta
+          </Button>
+        ) : (
+          <span className="flex items-center gap-1.5 text-[11px] text-muted-2">
+            <Lock size={12} />
+            Apenas diretores e CEO/Founder criam contas
+          </span>
+        )}
+      </div>
 
-          {actionError && (
-            <div role="alert" className="mb-3 rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-xs text-danger">
-              {actionError}
-            </div>
-          )}
+      {actionError && (
+        <div role="alert" className="mb-3 rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-xs text-danger">
+          {actionError}
+        </div>
+      )}
 
-          <div className="max-h-[22rem] space-y-3 overflow-y-auto pr-1">
-            {groups.map((group) => (
-              <div key={group.sector}>
-                <div className="mono-label mb-1.5">{group.sector}</div>
-                <div className="space-y-1">
-                  {group.members.map((u) => (
-                    <div
-                      key={u.id}
-                      className="rounded-lg border border-border-soft bg-surface-2/50 px-3 py-2"
-                    >
-                      <div className={`flex items-center gap-3 ${u.active === false ? "opacity-50" : ""}`}>
-                        <Avatar initials={u.initials} size={30} />
-                        <div className="min-w-0 flex-1 leading-tight">
-                          <div className="truncate text-sm font-medium">{u.name}</div>
-                          <div className="truncate text-[11px] text-muted">
-                            {u.title}
-                            {hasAuth && (u.email ? ` · ${u.email}` : " · sem login")}
-                          </div>
-                        </div>
-                        {u.isSuperAdmin && <Badge tone="accent">Admin</Badge>}
-                        {u.active === false && <Badge tone="neutral">Inativo</Badge>}
-                        <Badge tone={roleTone(u.role)}>{u.role}</Badge>
-                        {superAdmin && hasAuth && (
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => setLoginFor(loginFor === u.id ? null : u.id)}
-                              className="focus-ring rounded p-1.5 text-muted hover:bg-surface-3 hover:text-content"
-                              aria-label={`Definir login de ${u.name}`}
-                              title={u.email ? "Redefinir senha" : "Criar login"}
-                            >
-                              <KeyRound size={14} />
-                            </button>
-                            {u.id !== authUser.id && (
-                              <button
-                                onClick={() => void toggleActive(u)}
-                                className="focus-ring rounded p-1.5 text-muted hover:bg-surface-3 hover:text-content"
-                                aria-label={`${u.active === false ? "Reativar" : "Desativar"} ${u.name}`}
-                                title={u.active === false ? "Reativar conta" : "Desativar conta"}
-                              >
-                                <Power size={14} />
-                              </button>
-                            )}
-                          </div>
-                        )}
+      <div className={`space-y-3 overflow-y-auto pr-1 ${listClassName ?? ""}`}>
+        {groups.map((group) => (
+          <div key={group.sector}>
+            <div className="mono-label mb-1.5">{group.sector}</div>
+            <div className="space-y-1">
+              {group.members.map((u) => (
+                <div
+                  key={u.id}
+                  className="rounded-lg border border-border-soft bg-surface-2/50 px-3 py-2"
+                >
+                  <div className={`flex items-center gap-3 ${u.active === false ? "opacity-50" : ""}`}>
+                    <Avatar initials={u.initials} size={30} online={isOnline(u.lastSeenAt)} />
+                    <div className="min-w-0 flex-1 leading-tight">
+                      <div className="truncate text-sm font-medium">{u.name}</div>
+                      <div className="truncate text-[11px] text-muted">
+                        {u.title}
+                        {hasAuth && (u.email ? ` · ${u.email}` : " · sem login")}
                       </div>
-                      {loginFor === u.id && (
-                        <DefinirLoginForm
-                          user={u}
-                          onDone={(updated) => {
-                            replaceUser(updated);
-                            setLoginFor(null);
-                          }}
-                        />
+                    </div>
+                    {u.isSuperAdmin && <Badge tone="accent">Admin</Badge>}
+                    {u.active === false && <Badge tone="neutral">Inativo</Badge>}
+                    <Badge tone={roleTone(u.role)}>{u.role}</Badge>
+                    <div className="flex items-center gap-1">
+                      {canEditMembers && (!u.isSuperAdmin || superAdmin) && (
+                        <button
+                          onClick={() => setEditFor(editFor === u.id ? null : u.id)}
+                          className="focus-ring rounded p-1.5 text-muted hover:bg-surface-3 hover:text-content"
+                          aria-label={`Editar ${u.name}`}
+                          title="Editar membro"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                      )}
+                      {superAdmin && hasAuth && (
+                        <button
+                          onClick={() => setLoginFor(loginFor === u.id ? null : u.id)}
+                          className="focus-ring rounded p-1.5 text-muted hover:bg-surface-3 hover:text-content"
+                          aria-label={`Definir login de ${u.name}`}
+                          title={u.email ? "Redefinir senha" : "Criar login"}
+                        >
+                          <KeyRound size={14} />
+                        </button>
+                      )}
+                      {superAdmin && hasAuth && u.id !== authUser.id && (
+                        <button
+                          onClick={() => void toggleActive(u)}
+                          className="focus-ring rounded p-1.5 text-muted hover:bg-surface-3 hover:text-content"
+                          aria-label={`${u.active === false ? "Reativar" : "Desativar"} ${u.name}`}
+                          title={u.active === false ? "Reativar conta" : "Desativar conta"}
+                        >
+                          <Power size={14} />
+                        </button>
                       )}
                     </div>
-                  ))}
+                  </div>
+                  {editFor === u.id && (
+                    <EditarMembroForm
+                      user={u}
+                      onDone={(updated) => {
+                        replaceUser(updated);
+                        setEditFor(null);
+                      }}
+                    />
+                  )}
+                  {loginFor === u.id && (
+                    <DefinirLoginForm
+                      user={u}
+                      onDone={(updated) => {
+                        replaceUser(updated);
+                        setLoginFor(null);
+                      }}
+                    />
+                  )}
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </>
-      ) : (
-        <CriarContaForm
-          onCancel={() => setMode("list")}
-          onCreate={async (input) => {
-            await createUser(input);
-            setMode("list");
-          }}
-          creator={currentUser}
-          withLogin={hasAuth}
-        />
-      )}
-    </Modal>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/** CEO/Founder: altera nome, cargo, função e setor de um membro. */
+function EditarMembroForm({ user, onDone }: { user: User; onDone: (updated: User) => void }) {
+  const [name, setName] = useState(user.name);
+  const [title, setTitle] = useState(user.title);
+  const [role, setRole] = useState<Role>(user.role);
+  const [sector, setSector] = useState<Sector>(user.sector);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const autoSector = sectorForRole(role);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      onDone(await data.updateUser(user.id, { name: name.trim(), title: title.trim(), role, sector: autoSector ?? sector }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-2 space-y-2 border-t border-border-soft pt-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <input className={fieldCls} value={name} onChange={(e) => setName(e.target.value)} aria-label="Nome" required />
+        <input className={fieldCls} value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Cargo" placeholder="Cargo / descrição" />
+        <select className={fieldCls} value={role} onChange={(e) => setRole(e.target.value as Role)} aria-label="Função">
+          {(["Founder", "CEO", "CMO", "CCO", "CFO", "COO", "Colaborador"] as Role[]).map((r) => (
+            <option key={r} value={r}>{r}</option>
+          ))}
+        </select>
+        <select className={fieldCls} value={autoSector ?? sector} onChange={(e) => setSector(e.target.value as Sector)} disabled={!!autoSector} aria-label="Setor">
+          {SECTOR_ORDER.filter((s) => role !== "Colaborador" || s !== "Executivo").map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex items-center justify-between">
+        {error ? <span className="text-xs text-danger">{error}</span> : <span />}
+        <Button type="submit" variant="primary" disabled={busy}>{busy ? "Salvando…" : "Salvar"}</Button>
+      </div>
+    </form>
   );
 }
 

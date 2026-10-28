@@ -199,3 +199,22 @@ values ('Nome', 'Founder', 'Executivo', 'Admin Supremo', 'NM', 'email@empresa.co
 O botão "Entrar por link mágico" usa `signInWithOtp` (sem criar contas novas).
 Para o link voltar ao app, adicione a URL da Vercel em **Supabase → Authentication
 → URL Configuration → Redirect URLs**.
+
+### Operação completa (migração 003)
+
+[`db/supabase/003_operacao_completa.sql`](../db/supabase/003_operacao_completa.sql) adiciona:
+
+- **Tarefas:** tags, `updated_at`/`completed_at`, edição parcial (`ci_update_task`),
+  checklist, comentários, anexos (até 8 MB, guardados no banco) e histórico
+  automático de cada mudança (`task_activity`).
+- **Notificações** (`notifications`): atribuição, comentário e mudança de status
+  avisam responsável e criador; o sino do topo lista e marca como lidas.
+- **Presença:** `last_seen_at` atualizado no login e a cada minuto (“membros online”).
+- **Financeiro:** excluir lançamento e editar a inadimplência (`settings`).
+- **Marketing:** lançar/editar/excluir canais do mês, montar o funil e registrar
+  leads do dia — permitido ao setor de Marketing e a CEO/Founder.
+- **Perfil e equipe:** editar o próprio perfil; CEO/Founder editam membros.
+
+Interface: Visão geral, Tarefas (Quadro / Lista / Calendário + painel de
+detalhes em `?tarefa=<id>`), Financeiro, Marketing, Relatórios (com CSV) e
+Configurações; busca global com Ctrl/⌘ + K.

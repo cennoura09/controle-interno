@@ -9,8 +9,9 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { Plus, ArrowDownRight, ArrowUpRight, Lock } from "lucide-react";
-import { Card, SectionHeader, SectionLabel } from "../components/ui/Card";
+import { Plus, ArrowDownRight, ArrowUpRight, Lock, Trash2, Pencil, Download } from "lucide-react";
+import { Card, SectionLabel } from "../components/ui/Card";
+import { PageHeader } from "../components/layout/PageHeader";
 import { StatCard } from "../components/ui/StatCard";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
@@ -23,8 +24,10 @@ import { data } from "../services";
 import { useAsync } from "../lib/useAsync";
 import type { NewTransaction, TransactionType } from "../lib/types";
 
-const MONTH_LABEL = new Date().toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
 import { brl, delta, pct, ratio, shortDate } from "../lib/format";
+import { downloadCsv } from "../lib/csv";
+
+const MONTH_LABEL = new Date().toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
 
 export function FinanceiroPage() {
   const { currentUser } = useSession();
@@ -41,22 +44,63 @@ export function FinanceiroPage() {
     []
   );
 
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // KPIs e gráfico dependem dos lançamentos: recarrega tudo após escrever.
   async function addTransaction(input: NewTransaction) {
-    const tx = await data.createTransaction(input);
-    setData((prev) => (prev ? { ...prev, txs: [tx, ...prev.txs] } : prev));
+    await data.createTransaction(input);
+    reload();
+  }
+
+  async function removeTransaction(id: string, label: string) {
+    if (!window.confirm(`Excluir o lançamento "${label}"?`)) return;
+    setData((prev) => (prev ? { ...prev, txs: prev.txs.filter((t) => t.id !== id) } : prev));
+    try {
+      setActionError(null);
+      await data.deleteTransaction(id);
+      reload();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+      reload();
+    }
+  }
+
+  async function editDefault(current: number) {
+    const raw = window.prompt("Inadimplência atual (%)", (current * 100).toFixed(1).replace(".", ","));
+    if (raw === null) return;
+    const value = Number(raw.replace(",", ".").replace("%", ""));
+    if (Number.isNaN(value) || value < 0 || value > 100) {
+      setActionError("Informe um percentual entre 0 e 100.");
+      return;
+    }
+    try {
+      setActionError(null);
+      await data.setSetting("inadimplencia", value / 100);
+      reload();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  function exportCsv() {
+    if (!loaded) return;
+    downloadCsv("financeiro", [
+      ["Data", "Descrição", "Categoria", "Tipo", "Origem", "Valor"],
+      ...loaded.txs.map((t) => [t.date, t.description, t.category, t.type, t.source, String(t.amount).replace(".", ",")]),
+    ]);
   }
 
   const header = (
-    <SectionHeader
+    <PageHeader
       title="Financeiro"
       description="Receitas, despesas e faturamento. Conecte seu gateway de pagamento ou lance manualmente."
-      right={
+      action={
         canRegister ? (
-          <Button variant="secondary" icon={<Plus size={16} />} onClick={() => setManualOpen(true)}>
-            Adicionar manualmente
-          </Button>
+          <button onClick={() => setManualOpen(true)} className="btn-primary h-11 px-4 text-[15px] sm:h-[50px] sm:px-6 sm:text-[16px]">
+            <Plus size={20} strokeWidth={2.25} /> Novo lançamento
+          </button>
         ) : (
-          <span className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs text-muted">
+          <span className="flex items-center gap-1.5 rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-xs text-muted">
             <Lock size={13} />
             Lançamento manual restrito ao Financeiro
           </span>
@@ -70,6 +114,7 @@ export function FinanceiroPage() {
       title="Conecte seu sistema de pagamento"
       description="Sincronize receitas e despesas automaticamente em tempo real."
       integrations={["Stripe", "Pagar.me", "Mercado Pago", "Asaas"]}
+      onManual={canRegister ? () => setManualOpen(true) : undefined}
     />
   );
 
@@ -101,6 +146,9 @@ export function FinanceiroPage() {
     <div className="space-y-6">
       {header}
       {banner}
+      {actionError && (
+        <div role="alert" className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{actionError}</div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -154,7 +202,17 @@ export function FinanceiroPage() {
           <SectionLabel index="06">INDICADORES</SectionLabel>
           <MiniRow label="MRR" value={brl(K.mrr, { compact: true })} tone="accent" />
           <MiniRow label="Receita recorrente / total" value={pct(ratio(K.mrr, K.faturamento))} />
-          <MiniRow label="Inadimplência" value={pct(K.inadimplencia)} tone="danger" />
+          <div className="flex items-center justify-between border-b border-border-soft pb-3">
+            <span className="text-sm text-muted">Inadimplência</span>
+            <span className="flex items-center gap-2">
+              <span className="mono-num font-medium text-danger">{pct(K.inadimplencia)}</span>
+              {canRegister && (
+                <button onClick={() => void editDefault(K.inadimplencia)} className="rounded p-1 text-muted hover:text-white" aria-label="Editar inadimplência">
+                  <Pencil size={13} />
+                </button>
+              )}
+            </span>
+          </div>
           <div className="mt-auto rounded-lg border border-border bg-surface-2 p-3 text-xs text-muted">
             Nenhum gateway conectado — os valores vêm dos lançamentos manuais.
           </div>
@@ -165,7 +223,12 @@ export function FinanceiroPage() {
       <Card className="p-0">
         <div className="flex items-center justify-between p-5 pb-3">
           <SectionLabel index="07">TRANSAÇÕES RECENTES</SectionLabel>
-          <span className="font-mono text-xs text-muted">{sorted.length} lançamentos</span>
+          <span className="flex items-center gap-3">
+            <span className="font-mono text-xs text-muted">{sorted.length} lançamentos</span>
+            <button onClick={exportCsv} className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs text-muted hover:text-white">
+              <Download size={13} /> CSV
+            </button>
+          </span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -176,6 +239,7 @@ export function FinanceiroPage() {
                 <th className="px-5 py-2.5 font-medium">Categoria</th>
                 <th className="px-5 py-2.5 font-medium">Origem</th>
                 <th className="px-5 py-2.5 text-right font-medium">Valor</th>
+                {canRegister && <th className="w-10" />}
               </tr>
             </thead>
             <tbody>
@@ -195,8 +259,22 @@ export function FinanceiroPage() {
                       {t.type === "receita" ? "+" : "−"}{brl(t.amount)}
                     </span>
                   </td>
+                  {canRegister && (
+                    <td className="px-2 py-3">
+                      <button onClick={() => void removeTransaction(t.id, t.description)} className="rounded p-1 text-muted hover:text-danger" aria-label={`Excluir ${t.description}`}>
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
+              {sorted.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-5 py-10 text-center text-sm text-muted">
+                    Nenhum lançamento ainda.{canRegister && " Use “Novo lançamento” para registrar receitas e despesas."}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -229,23 +307,29 @@ function ManualTxModal({ open, onClose, onAdd }: { open: boolean; onClose: () =>
   const [category, setCategory] = useState("");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState<TransactionType>("receita");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const value = Number(amount.replace(",", "."));
+    const value = Number(amount.includes(",") ? amount.replace(/\./g, "").replace(",", ".") : amount);
     if (!description.trim() || !value || submitting) return;
     setSubmitting(true);
+    setError(null);
     try {
       await onAdd({
         description: description.trim(),
         category: category.trim() || "Outros",
         type,
         amount: value,
+        date,
         source: "manual",
       });
       setDescription(""); setCategory(""); setAmount(""); setType("receita");
       onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmitting(false);
     }
@@ -271,10 +355,17 @@ function ManualTxModal({ open, onClose, onAdd }: { open: boolean; onClose: () =>
             </select>
           </div>
         </div>
-        <div>
-          <label className={labelCls} htmlFor="m-amount">Valor (R$)</label>
-          <input id="m-amount" className={fieldCls} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" inputMode="decimal" required />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls} htmlFor="m-amount">Valor (R$)</label>
+            <input id="m-amount" className={fieldCls} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" inputMode="decimal" required />
+          </div>
+          <div>
+            <label className={labelCls} htmlFor="m-date">Data</label>
+            <input id="m-date" type="date" className={fieldCls} value={date} onChange={(e) => setDate(e.target.value)} required />
+          </div>
         </div>
+        {error && <div role="alert" className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div>}
         <div className="flex justify-end gap-2 border-t border-border pt-4">
           <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
           <Button type="submit" variant="primary" disabled={submitting}>{submitting ? "Adicionando…" : "Adicionar"}</Button>

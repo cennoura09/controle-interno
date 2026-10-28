@@ -6,8 +6,9 @@
 //   2. abrimos uma transação como `authenticated`, com request.jwt.claims
 //      preenchido (auth.uid() funciona dentro das funções);
 //   3. chamamos a função public.ci_* correspondente — que revalida as
-//      permissões no banco (ver db/supabase/001_schema.sql).
-// Só as funções da lista abaixo podem ser chamadas.
+//      permissões no banco (ver db/supabase/*.sql).
+// Só as funções da lista abaixo podem ser chamadas; todo valor vai como
+// parâmetro ($n) com cast explícito.
 // ============================================================================
 
 import postgres from "npm:postgres@3.4.4";
@@ -22,41 +23,78 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-type Args = Record<string, unknown>;
-type Tx = postgres.TransactionSql;
-type Call = (tx: Tx, a: Args) => Promise<postgres.RowList<postgres.Row[]>>;
+/** [chave em args, parâmetro SQL, tipo] */
+type Param = [string, string, string];
+const ID: Param = ["id", "p_id", "text"];
+const PATCH: Param = ["patch", "p_patch", "jsonb"];
 
-const s = (v: unknown) => (v === undefined || v === null || v === "" ? null : String(v));
-
-/** Funções expostas: nome → chamada parametrizada. */
-const CALLS: Record<string, Call> = {
-  ci_me: (tx) => tx`select public.ci_me() as r`,
-  ci_list_users: (tx) => tx`select public.ci_list_users() as r`,
-  ci_create_user: (tx, a) => tx`select public.ci_create_user(
-      p_name => ${s(a.name)}, p_role => ${s(a.role)}, p_sector => ${s(a.sector)},
-      p_title => ${s(a.title)}, p_email => ${s(a.email)}, p_password => ${s(a.password)}) as r`,
-  ci_set_user_active: (tx, a) =>
-    tx`select public.ci_set_user_active(${s(a.id)}, ${Boolean(a.active)}) as r`,
-  ci_set_user_login: (tx, a) =>
-    tx`select public.ci_set_user_login(${s(a.id)}, ${s(a.email)}, ${s(a.password)}) as r`,
-  ci_list_tasks: (tx) => tx`select public.ci_list_tasks() as r`,
-  ci_create_tasks: (tx, a) =>
-    tx`select public.ci_create_tasks(${sql.json((a.tasks ?? []) as postgres.JSONValue)}) as r`,
-  ci_update_task_status: (tx, a) =>
-    tx`select public.ci_update_task_status(${s(a.id)}, ${s(a.status)}) as r`,
-  ci_delete_task: (tx, a) => tx`select public.ci_delete_task(${s(a.id)}) as r`,
-  ci_finance_kpis: (tx) => tx`select public.ci_finance_kpis() as r`,
-  ci_revenue_series: (tx) => tx`select public.ci_revenue_series() as r`,
-  ci_list_transactions: (tx) => tx`select public.ci_list_transactions() as r`,
-  ci_create_transaction: (tx, a) => tx`select public.ci_create_transaction(
-      p_description => ${s(a.description)}, p_category => ${s(a.category)},
-      p_type => ${s(a.type)}, p_amount => ${Number(a.amount)}::numeric,
-      p_date => ${s(a.date)}::date, p_source => ${s(a.source) ?? "manual"}) as r`,
-  ci_marketing_kpis: (tx) => tx`select public.ci_marketing_kpis() as r`,
-  ci_list_channels: (tx) => tx`select public.ci_list_channels() as r`,
-  ci_funnel: (tx) => tx`select public.ci_funnel() as r`,
-  ci_leads_trend: (tx) => tx`select public.ci_leads_trend() as r`,
+const CALLS: Record<string, Param[]> = {
+  // Sessão / equipe
+  ci_me: [],
+  ci_heartbeat: [],
+  ci_list_users: [],
+  ci_create_user: [
+    ["name", "p_name", "text"], ["role", "p_role", "text"], ["sector", "p_sector", "text"],
+    ["title", "p_title", "text"], ["email", "p_email", "text"], ["password", "p_password", "text"],
+  ],
+  ci_update_user: [ID, PATCH],
+  ci_update_profile: [["name", "p_name", "text"], ["title", "p_title", "text"]],
+  ci_set_user_active: [ID, ["active", "p_active", "boolean"]],
+  ci_set_user_login: [ID, ["email", "p_email", "text"], ["password", "p_password", "text"]],
+  // Tarefas
+  ci_list_tasks: [],
+  ci_create_tasks: [["tasks", "p_tasks", "jsonb"]],
+  ci_update_task_status: [ID, ["status", "p_status", "text"]],
+  ci_update_task: [ID, PATCH],
+  ci_delete_task: [ID],
+  ci_task_detail: [ID],
+  ci_add_checklist_item: [
+    ["taskId", "p_task", "text"], ["text", "p_text", "text"],
+    ["dueDate", "p_due", "date"], ["assigneeId", "p_assignee", "text"],
+  ],
+  ci_update_checklist_item: [ID, PATCH],
+  ci_delete_checklist_item: [ID],
+  ci_add_comment: [["taskId", "p_task", "text"], ["body", "p_body", "text"]],
+  ci_delete_comment: [ID],
+  ci_upload_file: [
+    ["taskId", "p_task", "text"], ["name", "p_name", "text"],
+    ["mime", "p_mime", "text"], ["base64", "p_base64", "text"],
+  ],
+  ci_get_file: [ID],
+  ci_delete_file: [ID],
+  ci_recent_activity: [["limit", "p_limit", "integer"]],
+  ci_notifications: [],
+  ci_mark_notifications_read: [["ids", "p_ids", "bigint[]"]],
+  // Financeiro
+  ci_finance_kpis: [],
+  ci_revenue_series: [],
+  ci_list_transactions: [],
+  ci_create_transaction: [
+    ["description", "p_description", "text"], ["category", "p_category", "text"],
+    ["type", "p_type", "text"], ["amount", "p_amount", "numeric"],
+    ["date", "p_date", "date"], ["source", "p_source", "text"],
+  ],
+  ci_delete_transaction: [ID],
+  ci_get_settings: [],
+  ci_set_setting: [["key", "p_key", "text"], ["value", "p_value", "numeric"]],
+  // Marketing
+  ci_marketing_kpis: [],
+  ci_list_channels: [],
+  ci_funnel: [],
+  ci_leads_trend: [],
+  ci_upsert_channel: [["channel", "p_channel", "jsonb"]],
+  ci_delete_channel: [ID],
+  ci_set_funnel: [["stages", "p_stages", "jsonb"]],
+  ci_set_leads_day: [["day", "p_day", "date"], ["value", "p_value", "integer"]],
 };
+
+/** Converte o valor JS em texto; o cast acontece no SQL. */
+function toText(value: unknown, type: string): string | null {
+  if (value === undefined || value === null || value === "") return null;
+  if (type === "jsonb") return JSON.stringify(value);
+  if (type === "bigint[]") return `{${(value as unknown[]).map(Number).join(",")}}`;
+  return String(value);
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -78,21 +116,29 @@ Deno.serve(async (req) => {
   if (!authRes.ok) return json({ error: "Sessão expirada. Faça login novamente." }, 401);
   const user = await authRes.json();
 
-  let body: { fn?: string; args?: Args };
+  let body: { fn?: string; args?: Record<string, unknown> };
   try {
     body = await req.json();
   } catch {
     return json({ error: "JSON inválido." }, 400);
   }
-  const call = body.fn ? CALLS[body.fn] : undefined;
-  if (!call) return json({ error: `Operação desconhecida: ${body.fn}` }, 404);
+  const fn = body.fn ?? "";
+  const params = Object.hasOwn(CALLS, fn) ? CALLS[fn] : undefined;
+  if (!params) return json({ error: `Operação desconhecida: ${fn}` }, 404);
+
+  const args = body.args ?? {};
+  // Só envia os parâmetros informados; os demais usam o default da função.
+  const used = params.filter(([key]) => args[key] !== undefined);
+  const values = used.map(([key, , type]) => toText(args[key], type));
+  const list = used.map(([, name, type], i) => `${name} => ($${i + 1}::text)::${type}`).join(", ");
+  const query = `select public.${fn}(${list}) as r`;
 
   try {
     const rows = await sql.begin(async (tx) => {
       const claims = JSON.stringify({ sub: user.id, email: user.email, role: "authenticated" });
       await tx`select set_config('request.jwt.claims', ${claims}, true)`;
       await tx`set local role authenticated`;
-      return call(tx, body.args ?? {});
+      return tx.unsafe(query, values as string[]);
     });
     return json({ data: rows[0]?.r ?? null });
   } catch (e) {

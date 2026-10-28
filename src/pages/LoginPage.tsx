@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { Loader2, Mail, Lock, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { auth } from "../services";
-import logo from "../assets/so-sales-logo.jpg";
+import { LogoMark } from "../components/ui/Logo";
+import orb from "../assets/hero-orb.webp";
 
 const fieldCls =
   "w-full rounded-lg border border-border bg-bg px-3.5 py-3 text-sm text-content placeholder:text-muted-2 focus-ring";
@@ -64,7 +65,7 @@ export function LoginPage() {
         <HeroBackdrop />
 
         <div className="relative flex items-center gap-3">
-          <img src={logo} alt="" className="h-10 w-10 rounded-lg object-cover" />
+          <LogoMark size={44} />
           <span className="font-display text-sm font-bold tracking-[0.18em] text-content">
             SO<span className="text-accent">SALES</span>
           </span>
@@ -183,31 +184,13 @@ export function LoginPage() {
   );
 }
 
-/** Fundo do hero: brilho laranja, grade sutil e o "S" da marca em contorno. */
+/** Fundo do hero: o orbe da marca com as ondas de partículas. */
 function HeroBackdrop() {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(255,92,0,0.28),transparent_55%),radial-gradient(ellipse_at_80%_90%,rgba(255,92,0,0.12),transparent_50%)]" />
-      <div className="absolute inset-0 opacity-[0.07] [background-image:linear-gradient(#fff_1px,transparent_1px),linear-gradient(90deg,#fff_1px,transparent_1px)] [background-size:56px_56px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]" />
-      <svg
-        viewBox="0 0 200 260"
-        className="absolute -right-10 top-1/2 h-[120%] -translate-y-1/2 opacity-40 sm:right-0"
-        fill="none"
-      >
-        <defs>
-          <linearGradient id="s-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#FF7A2E" />
-            <stop offset="1" stopColor="#7a2a00" />
-          </linearGradient>
-        </defs>
-        <path
-          d="M150 48c-14-16-36-24-58-24-34 0-60 18-60 46 0 60 116 42 116 104 0 30-28 52-66 52-26 0-50-10-66-28"
-          stroke="url(#s-grad)"
-          strokeWidth="28"
-          strokeLinecap="round"
-        />
-      </svg>
-      <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-bg to-transparent" />
+      <img src={orb} alt="" className="absolute inset-0 h-full w-full object-cover object-[72%_50%] opacity-90" />
+      <div className="absolute inset-0 bg-gradient-to-r from-bg via-bg/60 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-bg to-transparent" />
     </div>
   );
 }

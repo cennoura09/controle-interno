@@ -170,3 +170,11 @@ function dedupeById(users: User[]): User[] {
   }
   return out;
 }
+
+/**
+ * Pode lançar/editar dados de marketing (canais, funil, leads)?
+ * Apenas o setor de Marketing (CMO e equipe) e CEO/Founder.
+ */
+export function canEditMarketing(user: User): boolean {
+  return isGlobalRole(user.role) || user.sector === "Marketing";
+}

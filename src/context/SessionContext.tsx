@@ -39,6 +39,8 @@ interface SessionValue {
   createUser: (input: NewUser) => Promise<User>;
   /** Substitui um membro na lista local após uma escrita. */
   replaceUser: (user: User) => void;
+  /** Recarrega a equipe (presença online, contas novas). */
+  refreshUsers: () => void;
   signOut: () => Promise<void>;
 }
 
@@ -79,7 +81,8 @@ function TeamSession({ userKey, children }: { userKey: string; children: ReactNo
     Promise.all([mePromise, data.listUsers()])
       .then(([meUser, list]) => {
         setMe(meUser);
-        setUsers(list);
+        // ci_me acabou de marcar a presença: usa essa versão na lista.
+        setUsers(meUser ? list.map((u) => (u.id === meUser.id ? meUser : u)) : list);
         setCurrentUserId(meUser?.id ?? "u-founder");
       })
       .catch((e: unknown) => {
@@ -91,6 +94,20 @@ function TeamSession({ userKey, children }: { userKey: string; children: ReactNo
 
   useEffect(load, [load, userKey]);
 
+  const refreshUsers = useCallback(() => {
+    data.listUsers().then(setUsers).catch(() => undefined);
+  }, []);
+
+  // Presença: avisa o servidor a cada minuto e atualiza a equipe a cada 2.
+  useEffect(() => {
+    const beat = window.setInterval(() => void data.heartbeat().catch(() => undefined), 60_000);
+    const refresh = window.setInterval(refreshUsers, 120_000);
+    return () => {
+      window.clearInterval(beat);
+      window.clearInterval(refresh);
+    };
+  }, [refreshUsers]);
+
   const createUser = useCallback(async (input: NewUser) => {
     const user = await data.createUser(input);
     setUsers((prev) => [...(prev ?? []), user]);
@@ -99,6 +116,7 @@ function TeamSession({ userKey, children }: { userKey: string; children: ReactNo
 
   const replaceUser = useCallback((user: User) => {
     setUsers((prev) => (prev ?? []).map((u) => (u.id === user.id ? user : u)));
+    setMe((prev) => (prev && prev.id === user.id ? user : prev));
   }, []);
 
   const signOut = useCallback(async () => {
@@ -121,9 +139,10 @@ function TeamSession({ userKey, children }: { userKey: string; children: ReactNo
       allUsers: users,
       createUser,
       replaceUser,
+      refreshUsers,
       signOut,
     };
-  }, [users, me, currentUserId, createUser, replaceUser, signOut]);
+  }, [users, me, currentUserId, createUser, replaceUser, refreshUsers, signOut]);
 
   if (denied) return <SemAcesso onSignOut={signOut} />;
 

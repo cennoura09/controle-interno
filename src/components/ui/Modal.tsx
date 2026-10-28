@@ -41,13 +41,13 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         className={cn(
-          "relative z-10 mt-10 w-full max-w-lg rounded-card border border-border bg-surface shadow-card",
+          "relative z-10 mt-6 w-full max-w-lg rounded-2xl border border-white/10 bg-[#121214] shadow-[0_40px_120px_-30px_rgba(0,0,0,1)] sm:mt-12",
           className
         )}
       >
         <div className="flex items-start justify-between gap-4 border-b border-border p-5">
           <div>
-            <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+            <h3 className="text-lg font-semibold tracking-tight text-white">{title}</h3>
             {description && (
               <p className="mt-1 text-sm text-muted">{description}</p>
             )}
