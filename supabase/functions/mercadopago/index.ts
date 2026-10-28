@@ -33,8 +33,18 @@ const token = () => Deno.env.get("MP_ACCESS_TOKEN")?.trim() || "";
 
 async function mp<T>(path: string): Promise<T> {
   const res = await fetch(`${MP_API}${path}`, { headers: { Authorization: `Bearer ${token()}` } });
-  if (!res.ok) throw new Error(`Mercado Pago respondeu ${res.status} em ${path.split("?")[0]}`);
+  if (!res.ok) {
+    // A mensagem do MP ajuda a diagnosticar (nunca contém a credencial).
+    const detail = await res.json().then((b) => b?.message ?? b?.error ?? "").catch(() => "");
+    throw new Error(`Mercado Pago respondeu ${res.status} em ${path.split("?")[0]}${detail ? `: ${detail}` : ""}`);
+  }
   return (await res.json()) as T;
+}
+
+/** Id da conta embutido no Access Token (APP_USR-<app>-<data>-<hash>-<user_id>). */
+function accountIdFromToken(): number | null {
+  const last = token().split("-").pop() ?? "";
+  return /^\d+$/.test(last) ? Number(last) : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -58,7 +68,15 @@ interface MpPayment {
 let accountId: number | null = null;
 /** Id da conta do token (recebedora). */
 async function myAccountId(): Promise<number> {
-  if (accountId === null) accountId = (await mp<{ id: number }>("/users/me")).id;
+  if (accountId === null) {
+    accountId = await mp<{ id: number }>("/users/me")
+      .then((me) => me.id)
+      .catch((e) => {
+        const fromToken = accountIdFromToken();
+        if (fromToken === null) throw e;
+        return fromToken;
+      });
+  }
   return accountId;
 }
 
@@ -152,7 +170,7 @@ async function syncSubscriptions(): Promise<{ active: number; mrr: number } | nu
 // ---------------------------------------------------------------------------
 
 async function syncAll() {
-  const me = await mp<{ id: number }>("/users/me");
+  const me = { id: await myAccountId() };
   const now = new Date();
   const begin = new Date(now.getTime() - 90 * 86_400_000);
   let offset = 0;
@@ -272,10 +290,17 @@ async function status() {
   };
   if (!token()) return { ...base, connected: false, reason: "Credencial MP_ACCESS_TOKEN não configurada no servidor." };
   try {
-    const me = await mp<{ nickname?: string; site_id?: string }>("/users/me");
+    const me = await mp<{ nickname?: string }>("/users/me");
     return { ...base, connected: true, account: me.nickname ?? null };
-  } catch (e) {
-    return { ...base, connected: false, reason: (e as Error).message };
+  } catch (first) {
+    // Algumas credenciais não leem o perfil, mas leem pagamentos: é o que importa.
+    try {
+      await mp("/v1/payments/search?limit=1");
+      const id = accountIdFromToken();
+      return { ...base, connected: true, account: id ? `conta ${id}` : null };
+    } catch (e) {
+      return { ...base, connected: false, reason: `${(e as Error).message} (perfil: ${(first as Error).message})` };
+    }
   }
 }
 
