@@ -18,6 +18,8 @@ import type {
   ActivityEntry,
   AppNotification,
   AppSettings,
+  GatewayStatus,
+  GatewaySyncResult,
   ChannelInput,
   ChannelPerformance,
   ChecklistItem,
@@ -52,28 +54,35 @@ export class ApiError extends Error {
 export class SupabaseDataSource implements DataSource {
   readonly client: SupabaseClient;
   private readonly fnUrl: string;
+  private readonly baseUrl: string;
 
   constructor(url: string, private readonly anonKey: string) {
     this.client = createClient(url, anonKey, {
       auth: { flowType: "pkce", persistSession: true, autoRefreshToken: true },
     });
-    this.fnUrl = `${url.replace(/\/+$/, "")}/functions/v1/controle-interno`;
+    this.baseUrl = url.replace(/\/+$/, "");
+    this.fnUrl = `${this.baseUrl}/functions/v1/controle-interno`;
   }
 
   /** Chama uma função `ci_*` pela Edge Function com o token da sessão. */
-  private async call<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
+  private call<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
+    return this.post<T>(this.fnUrl, { fn, args });
+  }
+
+  /** POST autenticado para uma Edge Function; devolve `data` ou lança ApiError. */
+  private async post<T>(url: string, payload: unknown): Promise<T> {
     const { data: auth } = await this.client.auth.getSession();
     const token = auth.session?.access_token;
     if (!token) throw new ApiError("Sessão expirada. Faça login novamente.", 401);
 
-    const res = await fetch(this.fnUrl, {
+    const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         apikey: this.anonKey,
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ fn, args }),
+      body: JSON.stringify(payload),
     });
     const body = (await res.json().catch(() => ({}))) as { data?: T; error?: string };
     if (!res.ok) throw new ApiError(body.error ?? `Falha na operação (${res.status})`, res.status);
@@ -218,6 +227,14 @@ export class SupabaseDataSource implements DataSource {
 
   setSetting(key: string, value: number): Promise<AppSettings> {
     return this.call<AppSettings>("ci_set_setting", { key, value });
+  }
+
+  gatewayStatus(): Promise<GatewayStatus> {
+    return this.post<GatewayStatus>(`${this.baseUrl}/functions/v1/mercadopago`, { op: "status" });
+  }
+
+  syncGateway(): Promise<GatewaySyncResult> {
+    return this.post<GatewaySyncResult>(`${this.baseUrl}/functions/v1/mercadopago`, { op: "sync" });
   }
 
   // ---- Marketing ----

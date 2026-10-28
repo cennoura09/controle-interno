@@ -218,3 +218,18 @@ Para o link voltar ao app, adicione a URL da Vercel em **Supabase → Authentica
 Interface: Visão geral, Tarefas (Quadro / Lista / Calendário + painel de
 detalhes em `?tarefa=<id>`), Financeiro, Marketing, Relatórios (com CSV) e
 Configurações; busca global com Ctrl/⌘ + K.
+
+### Mercado Pago (gateway do Financeiro)
+
+Migração [`005_mercadopago.sql`](../db/supabase/005_mercadopago.sql) + Edge Function
+[`supabase/functions/mercadopago`](../supabase/functions/mercadopago/index.ts) (`verify_jwt = false`).
+
+- **Webhook** (`https://<ref>.supabase.co/functions/v1/mercadopago`): eventos *Pagamentos*
+  e *Planos e assinaturas*. Cada pagamento é relido na API do MP; só pagamentos
+  **recebidos** pela conta entram. Aprovado → lançamento de receita (`source = gateway`,
+  `external_id = mp:<id>`) + taxa do MP como despesa; estornado/cancelado → removido.
+- **Sincronizar** (botão no Financeiro, CEO/Founder/Financeiro): importa 90 dias de
+  pagamentos, calcula MRR e assinaturas ativas (`/preapproval/search`) e a inadimplência
+  (cobranças recorrentes recusadas ÷ cobradas no mês).
+- **Segredos no Supabase** (Edge Functions → Secrets): `MP_ACCESS_TOKEN` (obrigatório,
+  credencial de produção) e `MP_WEBHOOK_SECRET` (assinatura secreta do webhook).

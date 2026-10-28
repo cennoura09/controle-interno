@@ -278,5 +278,28 @@ export interface NewTransaction {
   source?: TransactionSource;
 }
 
+/** Situação da integração com o gateway de pagamento (Mercado Pago). */
+export interface GatewayStatus {
+  provider: "mercadopago";
+  connected: boolean;
+  /** Apelido da conta no Mercado Pago, quando conectada. */
+  account?: string | null;
+  /** Motivo de não estar conectada (credencial ausente, inválida...). */
+  reason?: string;
+  /** Endereço que deve ser cadastrado em "Webhooks" no Mercado Pago. */
+  webhookUrl: string;
+  /** Avisos do webhook conferidos com a assinatura secreta. */
+  webhookSigned: boolean;
+  lastSync: string | null;
+  activeSubscriptions: number | null;
+}
+
+export interface GatewaySyncResult {
+  saved: number;
+  removed: number;
+  ignored: number;
+  subscriptions: { active: number; mrr: number } | null;
+}
+
 /** Indicadores configuráveis (ex.: inadimplência). */
 export type AppSettings = Record<string, number>;

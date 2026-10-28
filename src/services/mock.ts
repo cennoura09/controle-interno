@@ -11,6 +11,8 @@ import type {
   ActivityEntry,
   AppNotification,
   AppSettings,
+  GatewayStatus,
+  GatewaySyncResult,
   ChannelInput,
   ChannelPerformance,
   ChecklistItem,
@@ -373,6 +375,22 @@ export class MockDataSource implements DataSource {
   setSetting(key: string, value: number): Promise<AppSettings> {
     this.settings = { ...this.settings, [key]: value };
     return respond(this.settings);
+  }
+
+  gatewayStatus(): Promise<GatewayStatus> {
+    return respond({
+      provider: "mercadopago",
+      connected: false,
+      reason: "Modo demonstração: sem gateway.",
+      webhookUrl: "https://<projeto>.supabase.co/functions/v1/mercadopago",
+      webhookSigned: false,
+      lastSync: null,
+      activeSubscriptions: null,
+    });
+  }
+
+  syncGateway(): Promise<GatewaySyncResult> {
+    return Promise.reject(new Error("Modo demonstração: sem gateway para sincronizar."));
   }
 
   // ---- Marketing ----

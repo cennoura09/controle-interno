@@ -16,6 +16,8 @@ import type {
   ActivityEntry,
   AppNotification,
   AppSettings,
+  GatewayStatus,
+  GatewaySyncResult,
   ChannelInput,
   ChannelPerformance,
   ChecklistItem,
@@ -199,6 +201,14 @@ export class RestDataSource implements DataSource {
 
   setSetting(key: string, value: number): Promise<AppSettings> {
     return this.send<AppSettings>("PUT", `/api/settings/${key}`, { value });
+  }
+
+  gatewayStatus(): Promise<GatewayStatus> {
+    return this.request<GatewayStatus>("/api/gateway/status");
+  }
+
+  syncGateway(): Promise<GatewaySyncResult> {
+    return this.send<GatewaySyncResult>("POST", "/api/gateway/sync");
   }
 
   // ---- Marketing ----

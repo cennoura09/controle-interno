@@ -17,6 +17,8 @@ import type {
   ActivityEntry,
   AppNotification,
   AppSettings,
+  GatewayStatus,
+  GatewaySyncResult,
   ChannelInput,
   ChannelPerformance,
   ChecklistItem,
@@ -90,6 +92,10 @@ export interface DataSource {
   deleteTransaction(id: string): Promise<void>;
   getSettings(): Promise<AppSettings>;
   setSetting(key: string, value: number): Promise<AppSettings>;
+  /** Situação da conexão com o Mercado Pago. */
+  gatewayStatus(): Promise<GatewayStatus>;
+  /** Importa pagamentos (90 dias) e assinaturas do Mercado Pago. */
+  syncGateway(): Promise<GatewaySyncResult>;
 
   // ---- Marketing ----
   getMarketingKpis(): Promise<MarketingKpis>;

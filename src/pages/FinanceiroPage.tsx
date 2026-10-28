@@ -16,7 +16,7 @@ import { StatCard } from "../components/ui/StatCard";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Modal } from "../components/ui/Modal";
-import { ConnectBanner } from "../components/ui/ConnectBanner";
+import { GatewayCard } from "../components/financeiro/GatewayCard";
 import { Loading, LoadError } from "../components/ui/Loading";
 import { useSession } from "../context/SessionContext";
 import { canRegisterFinance } from "../lib/permissions";
@@ -111,10 +111,9 @@ export function FinanceiroPage() {
   );
 
   const banner = (
-    <ConnectBanner
-      title="Conecte seu sistema de pagamento"
-      description="Sincronize receitas e despesas automaticamente em tempo real."
-      integrations={["Stripe", "Pagar.me", "Mercado Pago", "Asaas"]}
+    <GatewayCard
+      canSync={canRegister}
+      onSynced={reload}
       onManual={canRegister ? () => setManualOpen(true) : undefined}
     />
   );
@@ -215,7 +214,7 @@ export function FinanceiroPage() {
             </span>
           </div>
           <div className="mt-auto rounded-lg border border-border bg-surface-2 p-3 text-xs leading-relaxed text-muted">
-            Nenhum gateway conectado — os valores vêm dos lançamentos manuais.
+            Com o Mercado Pago conectado, MRR e inadimplência vêm das assinaturas; os pagamentos entram como lançamentos “Gateway”.
           </div>
         </Card>
       </div>
