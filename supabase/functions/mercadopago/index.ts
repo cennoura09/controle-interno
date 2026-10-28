@@ -287,6 +287,8 @@ async function status() {
     webhookSigned: !!Deno.env.get("MP_WEBHOOK_SECRET")?.trim(),
     lastSync: settings.mp_last_sync ? new Date(settings.mp_last_sync * 1000).toISOString() : null,
     activeSubscriptions: settings.assinaturas_ativas ?? null,
+    // Só o tipo e o final da credencial, para conferir com o painel do MP.
+    tokenHint: token() ? `${token().startsWith("TEST-") ? "TEST" : token().startsWith("APP_USR-") ? "APP_USR" : "?"}…${token().slice(-4)}` : null,
   };
   if (!token()) return { ...base, connected: false, reason: "Credencial MP_ACCESS_TOKEN não configurada no servidor." };
   try {
@@ -316,10 +318,26 @@ Deno.serve(async (req) => {
   }
 
   try {
-    if (body.op === "status" || body.op === "sync") {
+    if (body.op === "status" || body.op === "sync" || body.op === "diagnose") {
       const member = await memberFromToken(req.headers.get("Authorization"));
       if (!member) return json({ error: "Sessão expirada. Faça login novamente." }, 401);
       if (body.op === "status") return json({ data: await status() });
+      if (body.op === "diagnose") {
+        // Só códigos HTTP e mensagens do MP, nenhum dado de pagamento.
+        const probe = async (path: string) => {
+          const res = await fetch(`${MP_API}${path}`, { headers: { Authorization: `Bearer ${token()}` } });
+          const msg = await res.json().then((b) => (res.ok ? "ok" : b?.message ?? b?.error ?? "")).catch(() => "");
+          return { path: path.split("?")[0], status: res.status, msg };
+        };
+        return json({
+          data: await Promise.all([
+            probe("/v1/payment_methods"),
+            probe("/users/me"),
+            probe("/v1/payments/search?limit=1"),
+            probe("/preapproval/search?limit=1"),
+          ]),
+        });
+      }
       const allowed = member.is_super_admin || ["CEO", "Founder"].includes(member.role) || member.sector === "Financeiro";
       if (!allowed) return json({ error: "Apenas o setor Financeiro e CEO/Founder sincronizam o gateway." }, 403);
       if (!token()) return json({ error: "Configure o segredo MP_ACCESS_TOKEN no Supabase antes de sincronizar." }, 400);
