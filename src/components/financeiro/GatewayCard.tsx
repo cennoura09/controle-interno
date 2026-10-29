@@ -62,7 +62,8 @@ export function GatewayCard({
     try {
       const r = await data.syncGateway();
       const subs = r.subscriptions ? ` · ${r.subscriptions.active} assinatura(s) ativa(s)` : "";
-      setMessage({ tone: "ok", text: `Sincronizado: ${r.saved} pagamento(s) aprovado(s)${r.removed ? `, ${r.removed} removido(s)` : ""}${subs}.` });
+      const out = r.statement?.saved ? ` · ${r.statement.saved} saída(s) do extrato` : "";
+      setMessage({ tone: "ok", text: `Sincronizado: ${r.saved} pagamento(s) aprovado(s)${r.removed ? `, ${r.removed} removido(s)` : ""}${out}${subs}.` });
       onSynced();
       check();
     } catch (e) {
@@ -73,6 +74,18 @@ export function GatewayCard({
   }
 
   const connected = status?.connected === true;
+
+  // Saídas do extrato chegam com alguns minutos de atraso: ao abrir o Financeiro,
+  // sincroniza sozinho se a última vez foi há mais de 30 minutos.
+  const [autoSynced, setAutoSynced] = useState(false);
+  useEffect(() => {
+    if (autoSynced || !connected || !canSync || syncing) return;
+    const last = status?.lastSync ? new Date(status.lastSync).getTime() : 0;
+    if (Date.now() - last < 30 * 60_000) return;
+    setAutoSynced(true);
+    void sync();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, canSync, status?.lastSync]);
 
   return (
     <>

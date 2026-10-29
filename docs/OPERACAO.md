@@ -230,6 +230,13 @@ Migração [`005_mercadopago.sql`](../db/supabase/005_mercadopago.sql) + Edge Fu
   `external_id = mp:<id>`) + taxa do MP como despesa; estornado/cancelado → removido.
 - **Sincronizar** (botão no Financeiro, CEO/Founder/Financeiro): importa 90 dias de
   pagamentos, calcula MRR e assinaturas ativas (`/preapproval/search`) e a inadimplência
-  (cobranças recorrentes recusadas ÷ cobradas no mês).
+  (cobranças recorrentes recusadas ÷ cobradas no mês). Conta só a partir de
+  `settings.mp_start_date` (op `set_start`); o Financeiro sincroniza sozinho ao abrir
+  se a última vez foi há mais de 30 min.
+- **Extrato** (relatório de liberações, `/v1/account/release_report`): Pix e
+  transferências enviadas do saldo não existem na API de pagamentos. Cada sincronização
+  importa as linhas `payout`/`refund`/`chargeback` dos relatórios prontos como despesa
+  (`external_id = mp:extrato:<id>:<tipo>`) e pede um relatório novo (no máximo a cada
+  15 min), que fica pronto em alguns minutos e entra na sincronização seguinte.
 - **Segredos no Supabase** (Edge Functions → Secrets): `MP_ACCESS_TOKEN` (obrigatório,
   credencial de produção) e `MP_WEBHOOK_SECRET` (assinatura secreta do webhook).

@@ -6,11 +6,15 @@
 //   - recebido de terceiros  → receita (+ taxa do MP como despesa)
 //   - pago/enviado a terceiros → despesa "Pagamentos e transferências"
 //   - movimentação interna (reserva, saldo, para si mesmo) → ignorada
+//   - Pix/transferência enviada do saldo → despesa, lida do extrato
+//     (relatório de liberações), external_id = mp:extrato:<id>:<tipo>
 // Só conta o que aconteceu a partir de `settings.mp_start_date` (epoch).
 //
 // 1. Webhook (POST do Mercado Pago): o pagamento é sempre relido na API do MP;
 //    com MP_WEBHOOK_SECRET definido, a assinatura (x-signature) é conferida.
 // 2. App (POST { op } com token do Supabase Auth): status | sync | inspect | diagnose | set_start.
+// 3. Extrato: a cada sincronização pede um relatório novo ao MP (fica pronto em
+//    alguns minutos) e importa as saídas dos relatórios já prontos.
 //
 // Segredos: MP_ACCESS_TOKEN (obrigatório), MP_WEBHOOK_SECRET (recomendado).
 // ============================================================================
@@ -221,6 +225,82 @@ async function syncSubscriptions(): Promise<{ active: number; mrr: number } | nu
 }
 
 // ---------------------------------------------------------------------------
+// Extrato (relatório de liberações) → saídas que não são pagamentos
+// ---------------------------------------------------------------------------
+
+interface MpReport {
+  file_name: string;
+  status: string;
+  end_date: string;
+  date_created: string;
+}
+
+/** Saídas do extrato e como aparecem no Financeiro. Reservas e liberações são internas. */
+const STATEMENT_OUT: Record<string, { label: string; category: string }> = {
+  payout: { label: "Pix/transferência enviada", category: "Pagamentos e transferências" },
+  refund: { label: "Reembolso", category: "Reembolsos" },
+  chargeback: { label: "Contestação", category: "Reembolsos" },
+};
+
+async function mpSend(method: string, path: string, body: unknown) {
+  const res = await fetch(`${MP_API}${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Mercado Pago respondeu ${res.status} em ${path}`);
+}
+
+async function mpText(path: string): Promise<string> {
+  const res = await fetch(`${MP_API}${path}`, { headers: { Authorization: `Bearer ${token()}` } });
+  if (!res.ok) throw new Error(`Mercado Pago respondeu ${res.status} ao baixar o extrato`);
+  return await res.text();
+}
+
+const num = (v?: string) => Number((v ?? "").replace(",", ".")) || 0;
+
+/** Importa as saídas dos extratos prontos e pede um novo (no máximo a cada 15 min). */
+async function syncStatement(begin: number, paymentIds: Set<string>): Promise<{ saved: number } | null> {
+  try {
+    const reports = (await mp<MpReport[]>("/v1/account/release_report/list"))
+      .filter((r) => r.status === "enabled" && new Date(r.end_date).getTime() >= begin)
+      .sort((a, b) => b.date_created.localeCompare(a.date_created))
+      .slice(0, 10);
+
+    const beginDay = new Date(begin - 3 * 3_600_000).toISOString().slice(0, 10);
+    let saved = 0;
+    for (const r of reports) {
+      const [header, ...lines] = (await mpText(`/v1/account/release_report/${encodeURIComponent(r.file_name)}`)).trim().split(/\r?\n/);
+      const cols = header.split(";");
+      for (const line of lines) {
+        const row = Object.fromEntries(line.split(";").map((v, i) => [cols[i], v]));
+        const kind = STATEMENT_OUT[row.DESCRIPTION ?? ""];
+        const amount = num(row.NET_DEBIT_AMOUNT);
+        const date = (row.DATE ?? "").slice(0, 10); // já no fuso de Brasília
+        // Pagamentos já entram pela API de pagamentos; aqui só o que não passa por ela.
+        if (!kind || amount <= 0 || !row.SOURCE_ID || date < beginDay || paymentIds.has(row.SOURCE_ID)) continue;
+        await upsert(date, `${kind.label} · MP #${row.SOURCE_ID}`, kind.category, "despesa", amount, `mp:extrato:${row.SOURCE_ID}:${row.DESCRIPTION}`);
+        saved += 1;
+      }
+    }
+
+    // O relatório pedido agora fica pronto em alguns minutos: entra na próxima sincronização.
+    const lastAsk = (await getSetting("mp_statement_requested")) ?? 0;
+    if (Date.now() / 1000 - lastAsk >= 15 * 60) {
+      await mpSend("POST", "/v1/account/release_report", {
+        begin_date: new Date(begin).toISOString().slice(0, 19) + "Z",
+        end_date: new Date().toISOString().slice(0, 19) + "Z",
+      });
+      await setSetting("mp_statement_requested", Math.floor(Date.now() / 1000));
+    }
+    return { saved };
+  } catch {
+    // Conta sem acesso a relatórios: segue só com pagamentos.
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Sincronização completa (desde mp_start_date)
 // ---------------------------------------------------------------------------
 
@@ -255,8 +335,9 @@ async function syncAll() {
   const charged = recurringApproved + recurringRejected;
   await setSetting("inadimplencia", charged > 0 ? Math.round((recurringRejected / charged) * 10000) / 10000 : 0);
   const subscriptions = await syncSubscriptions();
+  const statement = await syncStatement(begin, new Set(all.map((p) => String(p.id))));
   await setSetting("mp_last_sync", Math.floor(Date.now() / 1000));
-  return { ...counts, sent: sent.length, subscriptions };
+  return { ...counts, sent: sent.length, subscriptions, statement };
 }
 
 // ---------------------------------------------------------------------------

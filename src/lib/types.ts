@@ -299,6 +299,8 @@ export interface GatewaySyncResult {
   removed: number;
   ignored: number;
   subscriptions: { active: number; mrr: number } | null;
+  /** Saídas lidas do extrato (Pix/transferências enviadas); null sem acesso a relatórios. */
+  statement?: { saved: number } | null;
 }
 
 /** Indicadores configuráveis (ex.: inadimplência). */
