@@ -1,13 +1,16 @@
 // ============================================================================
 // Edge Function `mercadopago` — gateway do Financeiro.
 // ----------------------------------------------------------------------------
-// 1. Webhook (POST do Mercado Pago): cada pagamento aprovado vira lançamento
-//    de receita (+ a taxa do MP como despesa); estornado/cancelado é removido.
-//    O pagamento é sempre relido na API do MP, então o corpo do aviso não é
-//    confiável por si só. Com MP_WEBHOOK_SECRET definido, a assinatura
-//    (x-signature) também é conferida.
-// 2. App (POST { op: "status" | "sync" } com token do Supabase Auth):
-//    status da conexão e sincronização manual (últimos 90 dias + assinaturas).
+// Entradas e saídas da conta Mercado Pago viram lançamentos (source = gateway,
+// external_id = mp:<id>[:taxa|:saida]):
+//   - recebido de terceiros  → receita (+ taxa do MP como despesa)
+//   - pago/enviado a terceiros → despesa "Pagamentos e transferências"
+//   - movimentação interna (reserva, saldo, para si mesmo) → ignorada
+// Só conta o que aconteceu a partir de `settings.mp_start_date` (epoch).
+//
+// 1. Webhook (POST do Mercado Pago): o pagamento é sempre relido na API do MP;
+//    com MP_WEBHOOK_SECRET definido, a assinatura (x-signature) é conferida.
+// 2. App (POST { op } com token do Supabase Auth): status | sync | inspect | diagnose | set_start.
 //
 // Segredos: MP_ACCESS_TOKEN (obrigatório), MP_WEBHOOK_SECRET (recomendado).
 // ============================================================================
@@ -47,31 +50,8 @@ function accountIdFromToken(): number | null {
   return /^\d+$/.test(last) ? Number(last) : null;
 }
 
-// ---------------------------------------------------------------------------
-// Pagamentos → lançamentos
-// ---------------------------------------------------------------------------
-
-interface MpPayment {
-  id: number;
-  status: string;
-  description?: string;
-  transaction_amount: number;
-  date_created: string;
-  date_approved?: string | null;
-  operation_type?: string;
-  metadata?: Record<string, unknown>;
-  point_of_interaction?: { type?: string };
-  fee_details?: { amount: number }[];
-  collector_id?: number;
-  payer?: { id?: number | string };
-}
-
-/** Operações que só movem dinheiro dentro da própria conta (não são venda). */
-// money_transfer fica de fora: de terceiros é receita; para si mesmo cai na checagem do pagador.
-const INTERNAL_OPERATIONS = new Set(["partition_transfer", "account_fund"]);
-
 let accountId: number | null = null;
-/** Id da conta do token (recebedora). */
+/** Id da conta dona do token. */
 async function myAccountId(): Promise<number> {
   if (accountId === null) {
     accountId = await mp<{ id: number }>("/users/me")
@@ -85,61 +65,123 @@ async function myAccountId(): Promise<number> {
   return accountId;
 }
 
-/**
- * Só pagamentos RECEBIDOS de terceiros viram receita. Compras feitas pela
- * conta e movimentações internas (saque, reserva, transferência para si
- * mesmo) são ignoradas — e, se já tinham sido gravadas, removidas.
- */
-async function applyIfReceived(p: MpPayment) {
-  const me = await myAccountId();
-  const notMine = p.collector_id !== undefined && p.collector_id !== me;
-  const internal = INTERNAL_OPERATIONS.has(p.operation_type ?? "") || String(p.payer?.id ?? "") === String(me);
-  if (notMine || internal) {
-    const removed = await sql`delete from controle_interno.transactions where external_id in (${`mp:${p.id}`}, ${`mp:${p.id}:taxa`}) returning id`;
-    return removed.length ? ("removed" as const) : ("ignored" as const);
-  }
-  return applyPayment(p);
+async function getSetting(key: string): Promise<number | null> {
+  const [row] = await sql`select value from controle_interno.settings where key = ${key}`;
+  return row ? Number(row.value) : null;
 }
+
+async function setSetting(key: string, value: number) {
+  await sql`insert into controle_interno.settings (key, value) values (${key}, ${value})
+            on conflict (key) do update set value = excluded.value`;
+}
+
+/** Início da contagem (ms). Sem configuração: últimos 90 dias. */
+async function startMs(): Promise<number> {
+  const start = await getSetting("mp_start_date");
+  return start ? start * 1000 : Date.now() - 90 * 86_400_000;
+}
+
+// ---------------------------------------------------------------------------
+// Pagamentos → lançamentos
+// ---------------------------------------------------------------------------
+
+interface MpPayment {
+  id: number;
+  status: string;
+  description?: string;
+  transaction_amount: number;
+  date_created: string;
+  date_approved?: string | null;
+  operation_type?: string;
+  payment_type_id?: string;
+  payment_method_id?: string;
+  metadata?: Record<string, unknown>;
+  point_of_interaction?: { type?: string };
+  fee_details?: { amount: number }[];
+  collector_id?: number;
+  payer?: { id?: number | string };
+  transaction_details?: { net_received_amount?: number };
+}
+
+/** Operações que só movem dinheiro dentro da própria conta (não são venda nem gasto). */
+const INTERNAL_OPERATIONS = new Set(["partition_transfer", "account_fund"]);
 
 const isRecurring = (p: MpPayment) =>
   p.operation_type === "recurring_payment" ||
   p.point_of_interaction?.type === "SUBSCRIPTIONS" ||
   !!p.metadata?.preapproval_id;
 
-/** Aprovado → upsert (receita + taxa). Demais status → remove. */
-async function applyPayment(p: MpPayment): Promise<"saved" | "removed" | "ignored"> {
-  const id = `mp:${p.id}`;
-  const feeId = `mp:${p.id}:taxa`;
-  if (p.status !== "approved") {
-    const removed = await sql`delete from controle_interno.transactions where external_id in (${id}, ${feeId}) returning id`;
-    return removed.length ? "removed" : "ignored";
-  }
-  const date = (p.date_approved ?? p.date_created).slice(0, 10);
-  const recurring = isRecurring(p);
-  const description = `${p.description?.trim() || (recurring ? "Assinatura" : "Pagamento")} · MP #${p.id}`;
+type Direction = "in" | "out" | "internal";
+
+function direction(p: MpPayment, me: number): Direction {
+  const iReceived = p.collector_id === me;
+  const iPaid = String(p.payer?.id ?? "") === String(me);
+  if (INTERNAL_OPERATIONS.has(p.operation_type ?? "") || (iReceived && iPaid)) return "internal";
+  if (iPaid) return "out";
+  if (iReceived || p.collector_id === undefined) return "in";
+  return "internal"; // não envolve a conta como pagadora nem recebedora
+}
+
+const ids = (p: MpPayment) => [`mp:${p.id}`, `mp:${p.id}:taxa`, `mp:${p.id}:saida`];
+
+async function removeEntries(p: MpPayment): Promise<"removed" | "ignored"> {
+  const removed = await sql`delete from controle_interno.transactions where external_id = any(${ids(p)}) returning id`;
+  return removed.length ? "removed" : "ignored";
+}
+
+async function upsert(date: string, description: string, category: string, type: "receita" | "despesa", amount: number, externalId: string) {
   await sql`
     insert into controle_interno.transactions (date, description, category, type, amount, source, external_id)
-    values (${date}::date, ${description}, ${recurring ? "Receita recorrente" : "Vendas"}, 'receita',
-            ${p.transaction_amount}, 'gateway', ${id})
+    values (${date}::date, ${description}, ${category}, ${type}, ${amount}, 'gateway', ${externalId})
     on conflict (external_id) where external_id is not null do update
       set date = excluded.date, description = excluded.description, category = excluded.category,
-          amount = excluded.amount`;
-  const fee = (p.fee_details ?? []).reduce((a, f) => a + (Number(f.amount) || 0), 0);
-  if (fee > 0) {
-    await sql`
-      insert into controle_interno.transactions (date, description, category, type, amount, source, external_id)
-      values (${date}::date, ${`Taxa Mercado Pago · MP #${p.id}`}, 'Taxas', 'despesa', ${fee}, 'gateway', ${feeId})
-      on conflict (external_id) where external_id is not null do update
-        set date = excluded.date, amount = excluded.amount`;
-  } else {
-    await sql`delete from controle_interno.transactions where external_id = ${feeId}`;
+          type = excluded.type, amount = excluded.amount`;
+}
+
+/** Grava, atualiza ou remove os lançamentos de um pagamento. */
+async function applyPayment(p: MpPayment): Promise<"saved" | "removed" | "ignored"> {
+  const me = await myAccountId();
+  const dir = direction(p, me);
+  const happenedAt = new Date(p.date_approved ?? p.date_created).getTime();
+  if (dir === "internal" || p.status !== "approved" || happenedAt < (await startMs())) return removeEntries(p);
+
+  const date = (p.date_approved ?? p.date_created).slice(0, 10);
+  if (dir === "out") {
+    const label = p.description?.trim() || (p.payment_method_id === "pix" ? "Pix enviado" : "Pagamento enviado");
+    await sql`delete from controle_interno.transactions where external_id = any(${[`mp:${p.id}`, `mp:${p.id}:taxa`]})`;
+    await upsert(date, `${label} · MP #${p.id}`, "Pagamentos e transferências", "despesa", p.transaction_amount, `mp:${p.id}:saida`);
+    return "saved";
   }
+
+  const recurring = isRecurring(p);
+  const label = p.description?.trim() || (recurring ? "Assinatura" : p.payment_method_id === "pix" ? "Pix recebido" : "Pagamento");
+  await sql`delete from controle_interno.transactions where external_id = ${`mp:${p.id}:saida`}`;
+  await upsert(date, `${label} · MP #${p.id}`, recurring ? "Receita recorrente" : "Vendas", "receita", p.transaction_amount, `mp:${p.id}`);
+  const fee = (p.fee_details ?? []).reduce((a, f) => a + (Number(f.amount) || 0), 0);
+  if (fee > 0) await upsert(date, `Taxa Mercado Pago · MP #${p.id}`, "Taxas", "despesa", fee, `mp:${p.id}:taxa`);
+  else await sql`delete from controle_interno.transactions where external_id = ${`mp:${p.id}:taxa`}`;
   return "saved";
 }
 
-async function setSetting(key: string, value: number) {
-  await sql`insert into controle_interno.settings (key, value) values (${key}, ${value})
-            on conflict (key) do update set value = excluded.value`;
+/** Busca paginada de pagamentos com filtros extras (collector.id / payer.id). */
+async function searchPayments(extra: Record<string, string>, beginMs: number): Promise<MpPayment[]> {
+  const out: MpPayment[] = [];
+  for (let offset = 0; offset < 2000; offset += 100) {
+    const qs = new URLSearchParams({
+      sort: "date_created",
+      criteria: "desc",
+      range: "date_created",
+      begin_date: new Date(beginMs).toISOString(),
+      end_date: new Date().toISOString(),
+      limit: "100",
+      offset: String(offset),
+      ...extra,
+    });
+    const page = await mp<{ results: MpPayment[]; paging?: { total: number } }>(`/v1/payments/search?${qs}`);
+    out.push(...(page.results ?? []));
+    if (!page.results?.length || offset + 100 >= (page.paging?.total ?? 0)) break;
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -153,10 +195,9 @@ interface MpPreapproval {
 
 async function syncSubscriptions(): Promise<{ active: number; mrr: number } | null> {
   try {
-    let offset = 0;
     let active = 0;
     let mrr = 0;
-    for (;;) {
+    for (let offset = 0; offset < 2000; offset += 100) {
       const page = await mp<{ results: MpPreapproval[]; paging?: { total: number } }>(
         `/preapproval/search?status=authorized&limit=100&offset=${offset}`
       );
@@ -168,8 +209,7 @@ async function syncSubscriptions(): Promise<{ active: number; mrr: number } | nu
         mrr += r.frequency_type === "days" ? (amount * 30) / freq : amount / freq;
         active += 1;
       }
-      offset += 100;
-      if (!page.results?.length || offset >= (page.paging?.total ?? 0) || offset >= 2000) break;
+      if (!page.results?.length || offset + 100 >= (page.paging?.total ?? 0)) break;
     }
     await setSetting("mrr_gateway", Math.round(mrr * 100) / 100);
     await setSetting("assinaturas_ativas", active);
@@ -181,40 +221,34 @@ async function syncSubscriptions(): Promise<{ active: number; mrr: number } | nu
 }
 
 // ---------------------------------------------------------------------------
-// Sincronização completa (últimos 90 dias)
+// Sincronização completa (desde mp_start_date)
 // ---------------------------------------------------------------------------
 
 async function syncAll() {
-  const me = { id: await myAccountId() };
-  const now = new Date();
-  const begin = new Date(now.getTime() - 90 * 86_400_000);
-  let offset = 0;
+  const me = await myAccountId();
+  const begin = await startMs();
   const counts = { saved: 0, removed: 0, ignored: 0 };
+
+  // Recebidos pela conta + pagos/enviados pela conta (sem repetir).
+  const received = await searchPayments({ "collector.id": String(me) }, begin);
+  const sent = await searchPayments({ "payer.id": String(me) }, begin).catch(() => [] as MpPayment[]);
+  const seen = new Set<number>();
+  const all = [...received, ...sent].filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
+
+  // Lançamentos de antes do início da contagem saem do painel.
+  await sql`delete from controle_interno.transactions
+             where external_id like 'mp:%' and date < ${new Date(begin - 3 * 3_600_000).toISOString().slice(0, 10)}::date`;
+
+  const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
   let recurringApproved = 0;
   let recurringRejected = 0;
-
-  for (;;) {
-    const qs = new URLSearchParams({
-      sort: "date_created",
-      criteria: "desc",
-      range: "date_created",
-      begin_date: begin.toISOString(),
-      end_date: now.toISOString(),
-      "collector.id": String(me.id),
-      limit: "100",
-      offset: String(offset),
-    });
-    const page = await mp<{ results: MpPayment[]; paging?: { total: number } }>(`/v1/payments/search?${qs}`);
-    for (const p of page.results ?? []) {
-      counts[await applyIfReceived(p)] += 1;
-      if (isRecurring(p) && p.date_created.slice(0, 10) >= monthStart) {
-        if (p.status === "approved") recurringApproved += p.transaction_amount;
-        if (p.status === "rejected") recurringRejected += p.transaction_amount;
-      }
+  for (const p of all) {
+    counts[await applyPayment(p)] += 1;
+    if (isRecurring(p) && p.collector_id === me && p.date_created.slice(0, 10) >= monthStart) {
+      if (p.status === "approved") recurringApproved += p.transaction_amount;
+      if (p.status === "rejected") recurringRejected += p.transaction_amount;
     }
-    offset += 100;
-    if (!page.results?.length || offset >= (page.paging?.total ?? 0) || offset >= 2000) break;
   }
 
   // Inadimplência = cobranças recorrentes recusadas / cobradas no mês.
@@ -222,7 +256,7 @@ async function syncAll() {
   await setSetting("inadimplencia", charged > 0 ? Math.round((recurringRejected / charged) * 10000) / 10000 : 0);
   const subscriptions = await syncSubscriptions();
   await setSetting("mp_last_sync", Math.floor(Date.now() / 1000));
-  return { ...counts, subscriptions };
+  return { ...counts, sent: sent.length, subscriptions };
 }
 
 // ---------------------------------------------------------------------------
@@ -253,12 +287,12 @@ async function handleWebhook(req: Request, body: Record<string, unknown>) {
   if (!token()) return json({ ok: true, ignored: "MP_ACCESS_TOKEN ausente" });
 
   if (type === "payment") {
-    const result = await applyIfReceived(await mp<MpPayment>(`/v1/payments/${dataId}`));
+    const result = await applyPayment(await mp<MpPayment>(`/v1/payments/${dataId}`));
     return json({ ok: true, result });
   }
   if (type === "subscription_authorized_payment") {
     const ap = await mp<{ payment?: { id?: number } }>(`/authorized_payments/${dataId}`);
-    if (ap.payment?.id) await applyIfReceived(await mp<MpPayment>(`/v1/payments/${ap.payment.id}`));
+    if (ap.payment?.id) await applyPayment(await mp<MpPayment>(`/v1/payments/${ap.payment.id}`));
     await syncSubscriptions();
     return json({ ok: true });
   }
@@ -279,6 +313,8 @@ interface Member {
   is_super_admin: boolean;
 }
 
+const canManage = (m: Member) => m.is_super_admin || ["CEO", "Founder"].includes(m.role) || m.sector === "Financeiro";
+
 async function memberFromToken(authHeader: string | null): Promise<Member | null> {
   const jwt = authHeader?.replace(/^Bearer\s+/i, "");
   if (!jwt) return null;
@@ -293,7 +329,8 @@ async function memberFromToken(authHeader: string | null): Promise<Member | null
 
 async function status() {
   const settings = Object.fromEntries(
-    (await sql`select key, value from controle_interno.settings where key in ('mp_last_sync','assinaturas_ativas','mrr_gateway')`)
+    (await sql`select key, value from controle_interno.settings
+                where key in ('mp_last_sync','assinaturas_ativas','mrr_gateway','mp_start_date')`)
       .map((r) => [r.key, Number(r.value)])
   );
   const base = {
@@ -301,6 +338,7 @@ async function status() {
     webhookUrl: WEBHOOK_URL,
     webhookSigned: !!Deno.env.get("MP_WEBHOOK_SECRET")?.trim(),
     lastSync: settings.mp_last_sync ? new Date(settings.mp_last_sync * 1000).toISOString() : null,
+    countingSince: settings.mp_start_date ? new Date(settings.mp_start_date * 1000).toISOString() : null,
     activeSubscriptions: settings.assinaturas_ativas ?? null,
     // Só o tipo e o final da credencial, para conferir com o painel do MP.
     tokenHint: token() ? `${token().startsWith("TEST-") ? "TEST" : token().startsWith("APP_USR-") ? "APP_USR" : "?"}…${token().slice(-4)}` : null,
@@ -321,6 +359,52 @@ async function status() {
   }
 }
 
+/** Lista o que o MP tem (sem gravar) para conferência. */
+async function inspect() {
+  const me = await myAccountId();
+  const begin = Date.now() - 90 * 86_400_000;
+  const received = await searchPayments({ "collector.id": String(me) }, begin);
+  let sentError: string | null = null;
+  const sent = await searchPayments({ "payer.id": String(me) }, begin).catch((e) => {
+    sentError = (e as Error).message;
+    return [] as MpPayment[];
+  });
+  const seen = new Set<number>();
+  return {
+    sentSearch: sentError ?? `${sent.length} pagamento(s) feitos pela conta`,
+    data: [...received, ...sent]
+      .filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)))
+      .map((p) => ({
+        id: p.id, created: p.date_created, status: p.status, amount: p.transaction_amount,
+        net: p.transaction_details?.net_received_amount, operation: p.operation_type,
+        method: p.payment_method_id, description: p.description ?? null, direction: direction(p, me),
+      })),
+  };
+}
+
+async function diagnose() {
+  const probe = async (path: string) => {
+    const res = await fetch(`${MP_API}${path}`, { headers: { Authorization: `Bearer ${token()}` } });
+    const msg = await res.json().then((b) => (res.ok ? "ok" : b?.message ?? b?.error ?? "")).catch(() => "");
+    return { path: path.split("?")[0], status: res.status, msg };
+  };
+  // Impressão digital (não reversível) para comparar com o valor do painel.
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token()));
+  const fingerprint = [...new Uint8Array(digest)].slice(0, 6).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return {
+    fingerprint,
+    length: token().length,
+    data: await Promise.all([
+      probe("/v1/payment_methods"),
+      probe("/users/me"),
+      probe("/v1/payments/search?limit=1"),
+      probe("/preapproval/search?limit=1"),
+    ]),
+  };
+}
+
+const APP_OPS = new Set(["status", "sync", "inspect", "diagnose", "set_start"]);
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ ok: true });
@@ -333,59 +417,26 @@ Deno.serve(async (req) => {
   }
 
   try {
-    if (body.op === "status" || body.op === "sync" || body.op === "diagnose" || body.op === "inspect") {
+    if (typeof body.op === "string" && APP_OPS.has(body.op)) {
       const member = await memberFromToken(req.headers.get("Authorization"));
       if (!member) return json({ error: "Sessão expirada. Faça login novamente." }, 401);
       if (body.op === "status") return json({ data: await status() });
-      if (body.op === "inspect") {
-        // Detalhe dos pagamentos dos últimos 90 dias, sem gravar nada.
-        if (!(member.is_super_admin || ["CEO", "Founder"].includes(member.role) || member.sector === "Financeiro")) {
-          return json({ error: "Sem permissão." }, 403);
+      if (!canManage(member)) return json({ error: "Apenas o setor Financeiro e CEO/Founder gerenciam o gateway." }, 403);
+      if (!token()) return json({ error: "Configure o segredo MP_ACCESS_TOKEN no Supabase." }, 400);
+      if (body.op === "inspect") return json(await inspect());
+      if (body.op === "diagnose") return json(await diagnose());
+      if (body.op === "set_start") {
+        // Data (YYYY-MM-DD) no horário de Brasília; vazio = últimos 90 dias.
+        const day = String(body.date ?? "");
+        if (!day) {
+          await sql`delete from controle_interno.settings where key = 'mp_start_date'`;
+        } else {
+          const ms = new Date(`${day}T00:00:00-03:00`).getTime();
+          if (Number.isNaN(ms)) return json({ error: "Data inválida." }, 400);
+          await setSetting("mp_start_date", Math.floor(ms / 1000));
         }
-        const me = await myAccountId();
-        const qs = new URLSearchParams({
-          sort: "date_created", criteria: "desc", range: "date_created",
-          begin_date: new Date(Date.now() - 90 * 86_400_000).toISOString(), end_date: new Date().toISOString(), limit: "50",
-        });
-        type Raw = MpPayment & {
-          payment_type_id?: string; payment_method_id?: string; payer?: { id?: number | string };
-          transaction_details?: { net_received_amount?: number }; money_release_date?: string;
-        };
-        const page = await mp<{ results: Raw[] }>(`/v1/payments/search?${qs}`);
-        return json({
-          data: (page.results ?? []).map((p) => ({
-            id: p.id, created: p.date_created, approved: p.date_approved, status: p.status,
-            amount: p.transaction_amount, net: p.transaction_details?.net_received_amount,
-            operation: p.operation_type, type: p.payment_type_id, method: p.payment_method_id,
-            description: p.description ?? null,
-            received: p.collector_id === me, paidByMe: String(p.payer?.id ?? "") === String(me),
-          })),
-        });
+        return json({ data: await syncAll() });
       }
-      if (body.op === "diagnose") {
-        // Só códigos HTTP e mensagens do MP, nenhum dado de pagamento.
-        const probe = async (path: string) => {
-          const res = await fetch(`${MP_API}${path}`, { headers: { Authorization: `Bearer ${token()}` } });
-          const msg = await res.json().then((b) => (res.ok ? "ok" : b?.message ?? b?.error ?? "")).catch(() => "");
-          return { path: path.split("?")[0], status: res.status, msg };
-        };
-        // Impressão digital (não reversível) para comparar com o valor do painel.
-        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token()));
-        const fingerprint = [...new Uint8Array(digest)].slice(0, 6).map((b) => b.toString(16).padStart(2, "0")).join("");
-        return json({
-          fingerprint,
-          length: token().length,
-          data: await Promise.all([
-            probe("/v1/payment_methods"),
-            probe("/users/me"),
-            probe("/v1/payments/search?limit=1"),
-            probe("/preapproval/search?limit=1"),
-          ]),
-        });
-      }
-      const allowed = member.is_super_admin || ["CEO", "Founder"].includes(member.role) || member.sector === "Financeiro";
-      if (!allowed) return json({ error: "Apenas o setor Financeiro e CEO/Founder sincronizam o gateway." }, 403);
-      if (!token()) return json({ error: "Configure o segredo MP_ACCESS_TOKEN no Supabase antes de sincronizar." }, 400);
       return json({ data: await syncAll() });
     }
     return await handleWebhook(req, body);
